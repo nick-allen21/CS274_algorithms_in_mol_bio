@@ -31,7 +31,8 @@ class MatchMatrix(object):
     Match matrix class stores the scores of matches in a data structure
     """
     def __init__(self):
-        ### TO-DO! FILL IN ###
+        # Init as 2d score array 
+        self.match_matrix_scores = {}
 
     def set_score(self, a, b, score):
         """
@@ -42,7 +43,8 @@ class MatchMatrix(object):
            b = the character from sequence B
            score = the score to set it for
         """
-        ### TO-DO! FILL IN ###
+        # key will be a tuple of the two characters
+        self.match_matrix_scores[(a, b)] = score
 
     def get_score(self, a, b):
         """
@@ -55,9 +57,19 @@ class MatchMatrix(object):
         Returns:
            the score of that match
         """
-        ### TO-DO! FILL IN ###
+        # return value form the hash table
+        return self.match_matrix_scores[(a, b)]
 
 
+class ScoreEntry(object):
+    """
+    Object to store a score entry in the score matrix.
+    """
+    def __init__(self, row, col, score):
+        self.row = row
+        self.col = col
+        self.score = score
+        self.pointers = []
 
 class ScoreMatrix(object):
     """
@@ -69,15 +81,17 @@ class ScoreMatrix(object):
         self.name = name # identifier for the score matrix - Ix, Iy, or M
         self.nrow = nrow
         self.ncol = ncol
-        self.score_matrix # FILL IN 
+        self.score_matrix = [[ScoreEntry(row, col, 0) for col in range(ncol)] for row in range(nrow)]
         # you need to figure out a way to represent this and how to initialize
         # Hint: it may be helpful to have an object for each entry
 
     def get_score(self, row, col):
-        ### TO-DO! FILL IN ###
+        # return the score for the given row and column
+        return self.score_matrix[row][col].score
         
     def set_score(self, row, col, score):    
-        ### TO-DO! FILL IN ###
+        # set the score for the given row and column
+        self.score_matrix[row][col].score = score
 
     def get_pointers(self, row, col):
         """
@@ -85,10 +99,12 @@ class ScoreMatrix(object):
         This should be formatted as a list of tuples:
          ex. [(1,1), (1,0)]
         """
-        ### TO-DO! FILL IN ###
+        return self.score_matrix[row][col].pointers
 
-    def set_pointers(self, row, col): ### TO-DO! FILL IN - this needs additional arguments ###
-        ### TO-DO! FILL IN ###
+    def set_pointers(self, row, col, pointers: list[tuple[int, int]]):
+        # set the pointers for the given row and column
+        self.score_matrix[row][col].pointers = pointers
+
 
     def print_scores(self):
         """
@@ -142,7 +158,37 @@ class AlignmentParameters(object):
         Input:
            input_file = specially formatted alignment input file
         """
-        ### TO-DO! FILL IN ###
+        # load the alignment parameters into the align_params object
+        with open(input_file, 'r') as f:
+            # keep blank-line tolerant; strip trailing newlines
+            lines = [ln.strip() for ln in f if ln.strip() != '']
+        it = iter(lines)
+
+        # sequences
+        self.seq_a = next(it)
+        self.seq_b = next(it)
+
+        # global vs local
+        self.global_alignment = (next(it) == '1')
+
+        # gap penalties
+        self.dx, self.ex, self.dy, self.ey = map(float, next(it).split())
+
+        # alphabets
+        self.len_alphabet_a = int(next(it)); self.alphabet_a = next(it)
+        self.len_alphabet_b = int(next(it)); self.alphabet_b = next(it)
+
+        # create match matrix
+        for row in range(self.len_alphabet_a):
+            for col in range(self.len_alphabet_b):
+
+                # getting indices and scores from next line in input file
+                i, j, a, b, s = next(it).split()
+
+                # checking to make sure the indices are correct
+                assert i == row and j == col
+                self.match_matrix.set_score(a, b, float(s))
+
 
 
 
@@ -190,7 +236,10 @@ class Align(object):
         Note: You MUST initialize M, Ix, Iy in this function rather than elsewhere
         """
 
-        ### TO-DO! FILL IN ###
+        # initialize the score matrices, will all start at 0
+        self.m_matrix = ScoreMatrix("M", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
+        self.ix_matrix = ScoreMatrix("Ix", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
+        self.iy_matrix = ScoreMatrix("Iy", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
 
     def update(self, row, col):
         """
@@ -205,7 +254,10 @@ class Align(object):
         self.update_iy(row, col)
 
     def update_m(self, row, col):
-        ### TO-DO! FILL IN ###
+        # use recursion to update the score matrix
+        if row == 0 and col == 0:
+
+
 
     def update_ix(self, row, col):
         ### TO-DO! FILL IN ###
