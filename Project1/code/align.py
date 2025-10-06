@@ -217,6 +217,7 @@ class AlignmentParameters(object):
         self.seq_a = ""
         self.seq_b = ""
         self.global_alignment = False 
+        self.local_alignment = False
         self.dx = 0 # open gap penalty in A (I_x, skip row)
         self.ex = 0 # extend gap penalty in A (I_x, skip row)
         self.dy = 0 # open gap penalty in B (I_y, skip col)
@@ -246,6 +247,7 @@ class AlignmentParameters(object):
 
         # global vs local
         self.global_alignment = (next(it) == '0')
+        self.local_alignment = not self.global_alignment
 
         # gap penalties
         self.dx, self.ex, self.dy, self.ey = map(float, next(it).split())
@@ -318,7 +320,7 @@ class Align(object):
         self.max_score, self.max_loc = self.find_traceback_start()
         print("Max score: ", self.max_score, "\nMax loc: ", self.max_loc)
         self.paths = self.traceback()
-        self.print_paths()
+        # self.print_paths()
         self.write_output()
 
     def populate_score_matrices(self):
@@ -392,7 +394,13 @@ class Align(object):
         # loop through the three score matrices, create candidate score to represent score if we came from this potential space, and append to the list of score 
         for matrix in [self.m_matrix, self.ix_matrix, self.iy_matrix]:
             prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
-            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score + S_ij, prev_score_obj.matrix_name)
+            update_score = prev_score_obj.score + S_ij
+
+            # zero out negative scores for local alignment
+            if self.align_params.local_alignment:
+                update_score = max(float(0), update_score)
+
+            cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
         # get the max score and pointers from list of score entries``
@@ -410,7 +418,13 @@ class Align(object):
         # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
         for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dy, self.align_params.ey]):
             prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
-            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+            update_score = prev_score_obj.score - penalty
+
+            # zero out negative scores for local alignment
+            if self.align_params.local_alignment:
+                update_score = max(float(0), update_score)
+
+            cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
         # get the max score and pointers
@@ -430,7 +444,13 @@ class Align(object):
         # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
         for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dx, self.align_params.ex]):
             prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
-            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+            update_score = prev_score_obj.score - penalty
+
+            # zero out negative scores for local alignment
+            if self.align_params.local_alignment:
+                update_score = max(float(0), update_score)
+
+            cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
         
         # get the max score and pointers
