@@ -319,6 +319,7 @@ class Align(object):
         print("Max score: ", self.max_score, "\nMax loc: ", self.max_loc)
         self.paths = self.traceback()
         self.print_paths()
+        self.write_output()
 
     def populate_score_matrices(self):
         """
@@ -481,7 +482,7 @@ class Align(object):
                 return
 
             pointers = score_obj.pointers
-            # append pointer to path, recurse down path, and pop that most recently added pointer
+            # recuse down path with each pointer
             for ptr in pointers:
                 traceback_depth_first_search(ptr, path + [ptr])
         
@@ -490,9 +491,10 @@ class Align(object):
         for loc in max_loc:
             score_entry_loc = self.m_matrix.get_score_obj(loc[0], loc[1])
             pointers = score_entry_loc.pointers
-            for pointer in pointers:
-                path = [pointer]
-                traceback_depth_first_search(pointer, path)
+            # init with a pointer to max loc 
+            path = [pointer(loc[0], loc[1], "M")]
+            for ptr in pointers:
+                traceback_depth_first_search(ptr, path + [ptr])
 
         return paths
 
@@ -505,8 +507,44 @@ class Align(object):
 
 
     def write_output(self):
-        ### TO-DO! FILL IN ###
-        pass
+        alignments = []
+        # complete the emission process for each path 
+        # each path represents a potential alignment
+        for path in self.paths:
+            alignment = {"a": "", "b": ""}
+            
+            # we want to emit from the start to the end because that is how sequences are represented
+            # while in path, we have pointers that go from the end to the start
+            for ptr in reversed(path): 
+                row, col, name = ptr.row, ptr.col, ptr.name
+                # skip boundary pointers (no emission)
+                if row == 0 or col == 0:
+                    continue
+
+                # if diagonal, emit one letter from a, on letter from b
+                if name == "M":
+                    alignment["a"] += self.align_params.seq_a[row - 1]
+                    alignment["b"] += self.align_params.seq_b[col - 1]
+
+                # if horizontal, emit B[i] aligned with a gap 
+                elif name == "Ix":
+                    alignment["a"] += self.align_params.seq_a[row - 1]
+                    alignment["b"] += "_"
+
+                # if vertical, emit A[j] aligned with a gap 
+                elif name == "Iy":
+                    alignment["a"] += "_"
+                    alignment["b"] += self.align_params.seq_b[col - 1]
+            alignments.append(alignment)
+        
+        # write the alignments to the output file
+        with open(self.output_file, "w") as f:
+            f.write(str(self.max_score) + "\n\n")
+            for alignment in alignments:
+                f.write(alignment["a"] + "\n")
+                f.write(alignment["b"] + "\n")
+                f.write("\n")
+
 
 def main():
 
