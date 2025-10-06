@@ -12,6 +12,7 @@ Usage: python align.py input_file output_file
 """
 
 
+import glob
 import sys
 
 class pointer(object):
@@ -212,10 +213,10 @@ class AlignmentParameters(object):
         self.seq_a = ""
         self.seq_b = ""
         self.global_alignment = False 
-        self.dx = 0
-        self.ex = 0
-        self.dy = 0
-        self.ey = 0
+        self.dx = 0 # open gap penalty in A (I_x, skip row)
+        self.ex = 0 # extend gap penalty in A (I_x, skip row)
+        self.dy = 0 # open gap penalty in B (I_y, skip col)
+        self.ey = 0 # extend gap penalty in B (I_y, skip col)
         self.alphabet_a = "" 
         self.alphabet_b = ""
         self.len_alphabet_a = 0
@@ -243,7 +244,7 @@ class AlignmentParameters(object):
         self.global_alignment = (next(it) == '0')
 
         # gap penalties
-        self.dx, self.ex, self.dy, self.ey = map(float, next(it).split())
+        self.dy, self.ey, self.dx, self.ex = map(float, next(it).split())
 
         # alphabets
         self.len_alphabet_a = int(next(it)); self.alphabet_a = next(it)
@@ -283,6 +284,15 @@ class Align(object):
         self.ix_matrix = None
         self.iy_matrix = None
 
+        self.max_score = 0
+        self.max_loc = set()
+        self.paths = [
+                        {
+                            "seq_a": "", 
+                            "seq_b": "",
+                        }
+                    ]    
+
     def align(self):
         """
         Main method for running alignment.
@@ -315,9 +325,26 @@ class Align(object):
         """
 
         # initialize the score matrices, will all start at 0, we won't recompute the boundaries
-        self.m_matrix = ScoreMatrix("M", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
-        self.ix_matrix = ScoreMatrix("Ix", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
-        self.iy_matrix = ScoreMatrix("Iy", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
+        # col / row 0 represents starting w a gap
+        nrow = len(self.align_params.seq_a) + 1
+        ncol = len(self.align_params.seq_b) + 1
+        self.m_matrix = ScoreMatrix("M", nrow, ncol)
+        self.ix_matrix = ScoreMatrix("Ix", nrow, ncol)
+        self.iy_matrix = ScoreMatrix("Iy", nrow, ncol)
+
+        # forbid starting in gap states
+        # neg_inf = float('-inf')
+
+        # # forbid starting in gap states
+        # for j in range(self.ix_matrix.ncol):
+        #     self.ix_matrix.set_score(0, j, neg_inf)
+        # for i in range(self.ix_matrix.nrow):
+        #     self.ix_matrix.set_score(i, 0, neg_inf)
+
+        # for j in range(self.iy_matrix.ncol):
+        #     self.iy_matrix.set_score(0, j, neg_inf)
+        # for i in range(self.iy_matrix.nrow):
+        #     self.iy_matrix.set_score(i, 0, neg_inf)
 
         # score matrixes 
         print("\n1) Intitial Score Matrices:")
@@ -329,12 +356,9 @@ class Align(object):
         self.iy_matrix.print_scores()
 
         # update the score matrices 
-        for row in range(self.align_params.len_alphabet_a):
-            for col in range(self.align_params.len_alphabet_b):
-
-                # no need to check the boundaries again, we want zero because no start/end penalties
-                if row > 0 and col > 0:
-                    self.update(row, col)
+        for row in range(1, nrow):
+            for col in range(1, ncol):
+                self.update(row, col)
 
     def update(self, row, col):
         """
@@ -358,16 +382,14 @@ class Align(object):
         prev = (row - 1, col - 1)
 
         # get score for match from hash table
-        S_ij = self.align_params.match_matrix.get_score(self.align_params.seq_a[row], self.align_params.seq_b[col])
-
-        # make sure prev is in bound for matrices
-        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
+        # correct score lives at index - 1 because we are 1-indexed on the
+        S_ij = self.align_params.match_matrix.get_score(self.align_params.seq_a[row-1], self.align_params.seq_b[col-1])
             
-            # loop through the three score matrices, create candidate score to represent score if we came from this potential space, and append to the list of score 
-            for matrix in [self.m_matrix, self.ix_matrix, self.iy_matrix]:
-                prev_score_obj = matrix.get_score(prev[0], prev[1])
-                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score + S_ij, prev_score_obj.matrix_name)
-                candidate_score_entries.append(cand)
+        # loop through the three score matrices, create candidate score to represent score if we came from this potential space, and append to the list of score 
+        for matrix in [self.m_matrix, self.ix_matrix, self.iy_matrix]:
+            prev_score_obj = matrix.get_score(prev[0], prev[1])
+            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score + S_ij, prev_score_obj.matrix_name)
+            candidate_score_entries.append(cand)
 
         # get the max score and pointers from list of score entries``
         max_score, max_pointers = get_maxes(candidate_score_entries)
@@ -376,20 +398,16 @@ class Align(object):
 
     def update_ix(self, row, col):
 
-        print("starting update_ix")
         # initialize list of score entry objects
         candidate_score_entries = []
         
         # declare prev and make sure it is in bound for matrices
         prev = (row - 1, col)
-        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
-
-            # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
-            for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dx, self.align_params.ex]):
-                prev_score_obj = matrix.get_score(prev[0], prev[1])
-                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
-                print("cand: ", cand)
-                candidate_score_entries.append(cand)
+        # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
+        for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dx, self.align_params.ex]):
+            prev_score_obj = matrix.get_score(prev[0], prev[1])
+            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+            candidate_score_entries.append(cand)
 
         # get the max score and pointers
         max_score, max_pointers = get_maxes(candidate_score_entries)
@@ -402,15 +420,14 @@ class Align(object):
         # initialize list of score entry objects
         candidate_score_entries = []
 
-        # declare prev and make sure it is in bound for matrices
+        # declare prev
         prev = (row, col - 1)
-        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
 
-            # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
-            for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dy, self.align_params.ey]):
-                prev_score_obj = matrix.get_score(prev[0], prev[1])
-                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
-                candidate_score_entries.append(cand)
+        # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
+        for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dy, self.align_params.ey]):
+            prev_score_obj = matrix.get_score(prev[0], prev[1])
+            cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+            candidate_score_entries.append(cand)
         
         # get the max score and pointers
         max_score, max_pointers = get_maxes(candidate_score_entries)
@@ -427,6 +444,7 @@ class Align(object):
             max_loc is a set() containing tuples with the (i,j) location(s) to start the traceback
              (ex. [(1,2), (3,4)])
         """
+        
         ### TO-DO! FILL IN ###
         pass
 
@@ -435,8 +453,6 @@ class Align(object):
         Performs a traceback.
         Hint: include a way to printing the traceback path. This will be helpful for debugging!
            ex. M(5,4)->Iy(4,3)->M(4,2)->Ix(3,1)->Ix(2,1)->M(1,1)->M(0,0)
-
-
         """
         ### TO-DO! FILL IN ###
         pass
