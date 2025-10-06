@@ -134,6 +134,10 @@ class ScoreMatrix(object):
     
     def get_score(self, row, col):
         # return the score entry obj for the given row and column
+        return self.score_matrix[row][col].score
+
+    def get_score_obj(self, row, col):
+        # return the score value for the given row and column
         return self.score_matrix[row][col]
 
     def set_score(self, row, col, score):
@@ -244,7 +248,7 @@ class AlignmentParameters(object):
         self.global_alignment = (next(it) == '0')
 
         # gap penalties
-        self.dy, self.ey, self.dx, self.ex = map(float, next(it).split())
+        self.dx, self.ex, self.dy, self.ey = map(float, next(it).split())
 
         # alphabets
         self.len_alphabet_a = int(next(it)); self.alphabet_a = next(it)
@@ -387,7 +391,7 @@ class Align(object):
             
         # loop through the three score matrices, create candidate score to represent score if we came from this potential space, and append to the list of score 
         for matrix in [self.m_matrix, self.ix_matrix, self.iy_matrix]:
-            prev_score_obj = matrix.get_score(prev[0], prev[1])
+            prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
             cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score + S_ij, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
@@ -404,8 +408,8 @@ class Align(object):
         # declare prev and make sure it is in bound for matrices
         prev = (row - 1, col)
         # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
-        for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dx, self.align_params.ex]):
-            prev_score_obj = matrix.get_score(prev[0], prev[1])
+        for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dy, self.align_params.ey]):
+            prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
             cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
@@ -424,8 +428,8 @@ class Align(object):
         prev = (row, col - 1)
 
         # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
-        for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dy, self.align_params.ey]):
-            prev_score_obj = matrix.get_score(prev[0], prev[1])
+        for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dx, self.align_params.ex]):
+            prev_score_obj = matrix.get_score_obj(prev[0], prev[1])
             cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
         
@@ -444,8 +448,15 @@ class Align(object):
             max_loc is a set() containing tuples with the (i,j) location(s) to start the traceback
              (ex. [(1,2), (3,4)])
         """
-        
-        ### TO-DO! FILL IN ###
+        # scores = set()
+        # for row in range(1, self.m_matrix.nrow):
+        #     for col in range(1, self.m_matrix.ncol):
+        #         if self.m_matrix.get_score(row, col) > self.max_score:
+        #             self.max_score = self.m_matrix.get_score(row, col)
+        #             self.max_loc = set([(row, col)])
+        #         elif self.m_matrix.get_score(row, col) == self.max_score:
+        #             self.max_loc.add((row, col))
+
         pass
 
     def traceback(self): ### TO-DO! FILL IN additional arguments ###
