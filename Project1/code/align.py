@@ -522,6 +522,26 @@ class Align(object):
         name_to_matrix = {"M": self.m_matrix, "Ix": self.ix_matrix, "Iy": self.iy_matrix}
         paths = []
 
+        def prevent_right_sided(ptrs: list[pointer]):
+            """
+            During local alignment, if you trace back to a cell that contains pointers to a zero in the M matrix 
+            and a pointer to a zero in the Ix or Iy matrix, you should only follow the pointer to the zero in the
+            M matrix and terminate your traceback there only. 
+            This will prevent you from having alignments that are right-sided substrings.
+            """
+            # only check for right-sided substrings in local alignment
+            ptr_names = [ptr.name for ptr in ptrs]
+            if "M" in ptr_names and ("Ix" in ptr_names or "Iy" in ptr_names):
+                m_matrix = name_to_matrix["M"]
+                ix_matrix = name_to_matrix["Ix"]
+                iy_matrix = name_to_matrix["Iy"]
+                m_ptr_scores = [m_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "M"]
+                i_ptr_scores = [ix_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "Ix"]
+                i_ptr_scores += [iy_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "Iy"]
+                if all(fuzzy_equals(float(score), 0.0) for score in m_ptr_scores) and any(fuzzy_equals(float(score), 0.0) for score in i_ptr_scores):
+                    return [ptr for ptr in ptrs if ptr.name == "M"]
+            return ptrs
+
         def traceback_depth_first_search(ptr, path):
 
             name, row, col = ptr.name, ptr.row, ptr.col
@@ -539,6 +559,9 @@ class Align(object):
                 return
 
             pointers = score_obj.pointers
+            if self.align_params.local_alignment:
+                pointers = prevent_right_sided(pointers)
+
             # recuse down path with each pointer
             for ptr in pointers:
                 traceback_depth_first_search(ptr, path + [ptr])
