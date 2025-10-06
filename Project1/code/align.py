@@ -468,19 +468,50 @@ class Align(object):
             max_loc is a set() containing tuples with the (i,j) location(s) to start the traceback
              (ex. [(1,2), (3,4)])
         """
-        scores = set()
-        for row in range(1, self.m_matrix.nrow):
-            for col in range(1, self.m_matrix.ncol):
-                score = self.m_matrix.get_score(row, col)
-                scores.add(score)
-        
-        max_score = max(scores)
+        nrow, ncol = self.m_matrix.nrow, self.m_matrix.ncol
+        max_score = float('-inf')
         max_loc = set()
-        for row in range(1, self.m_matrix.nrow):
-            for col in range(1, self.m_matrix.ncol):
-                if fuzzy_equals(self.m_matrix.get_score(row, col), max_score):
-                    max_loc.add((row, col))
-        return max_score, max_loc
+        scores = set()
+
+        # When looking for best match: 
+        # local looks for the best score anywhere in the matrix, 
+        # while global looks only in last row and last column.
+        if self.align_params.local_alignment:
+            # best anywhere in the matrix
+            for row in range(1, nrow):
+                for col in range(1, ncol):
+                    score = self.m_matrix.get_score(row, col)
+                    scores.add(score)
+            max_score = max(scores)
+            max_loc = set()
+            for row in range(1, nrow):
+                for col in range(1, ncol):
+                    if fuzzy_equals(self.m_matrix.get_score(row, col), max_score):
+                        max_loc.add((row, col))
+
+            # round to the first decimal place
+            return round(float(max_score), 1), max_loc
+        else:
+            # best in the last row or the last column 
+            for col in range(1, ncol):
+                score = self.m_matrix.get_score(nrow - 1, col)
+                scores.add(score)
+            for row in range(1, nrow):
+                score = self.m_matrix.get_score(row, ncol - 1)
+                scores.add(score)
+
+            max_score = max(scores)
+            max_loc = set()
+
+            for col in range(1, ncol):
+                if fuzzy_equals(self.m_matrix.get_score(nrow - 1, col), max_score):
+                    max_loc.add((nrow - 1, col))
+            for row in range(1, nrow):
+                if fuzzy_equals(self.m_matrix.get_score(row, ncol - 1), max_score):
+                    max_loc.add((row, ncol - 1))
+
+            # round the max score to 1 decimal places
+            return round(float(max_score), 1), max_loc
                 
     def traceback(self): ### TO-DO! FILL IN additional arguments ###
         """
@@ -497,6 +528,12 @@ class Align(object):
             matrix = name_to_matrix[name]
             score_obj = matrix.get_score_obj(row, col)
             # base case that we hit a boundary, add path to paths and return
+
+            # in local alignment if we find a zero, we terminate and return 
+            if self.align_params.local_alignment and fuzzy_equals(float(score_obj.score), 0.0):
+                paths.append(path)
+                return
+
             if row == 0 or col == 0:
                 paths.append(path)
                 return
