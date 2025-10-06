@@ -290,12 +290,7 @@ class Align(object):
 
         self.max_score = 0
         self.max_loc = set()
-        self.paths = [
-                        {
-                            "seq_a": "", 
-                            "seq_b": "",
-                        }
-                    ]    
+        self.paths = []
 
     def align(self):
         """
@@ -320,6 +315,10 @@ class Align(object):
         # perform a traceback and write the output to an output file
 
         ### TO-DO! FILL IN ###
+        self.max_score, self.max_loc = self.find_traceback_start()
+        print("Max score: ", self.max_score, "\nMax loc: ", self.max_loc)
+        self.paths = self.traceback()
+        self.print_paths()
 
     def populate_score_matrices(self):
         """
@@ -337,18 +336,18 @@ class Align(object):
         self.iy_matrix = ScoreMatrix("Iy", nrow, ncol)
 
         # forbid starting in gap states
-        # neg_inf = float('-inf')
+        neg_inf = float('-inf')
 
-        # # forbid starting in gap states
-        # for j in range(self.ix_matrix.ncol):
-        #     self.ix_matrix.set_score(0, j, neg_inf)
-        # for i in range(self.ix_matrix.nrow):
-        #     self.ix_matrix.set_score(i, 0, neg_inf)
+        # forbid starting in gap states
+        for j in range(self.ix_matrix.ncol):
+            self.ix_matrix.set_score(0, j, neg_inf)
+        for i in range(self.ix_matrix.nrow):
+            self.ix_matrix.set_score(i, 0, neg_inf)
 
-        # for j in range(self.iy_matrix.ncol):
-        #     self.iy_matrix.set_score(0, j, neg_inf)
-        # for i in range(self.iy_matrix.nrow):
-        #     self.iy_matrix.set_score(i, 0, neg_inf)
+        for j in range(self.iy_matrix.ncol):
+            self.iy_matrix.set_score(0, j, neg_inf)
+        for i in range(self.iy_matrix.nrow):
+            self.iy_matrix.set_score(i, 0, neg_inf)
 
         # score matrixes 
         print("\n1) Intitial Score Matrices:")
@@ -448,25 +447,62 @@ class Align(object):
             max_loc is a set() containing tuples with the (i,j) location(s) to start the traceback
              (ex. [(1,2), (3,4)])
         """
-        # scores = set()
-        # for row in range(1, self.m_matrix.nrow):
-        #     for col in range(1, self.m_matrix.ncol):
-        #         if self.m_matrix.get_score(row, col) > self.max_score:
-        #             self.max_score = self.m_matrix.get_score(row, col)
-        #             self.max_loc = set([(row, col)])
-        #         elif self.m_matrix.get_score(row, col) == self.max_score:
-        #             self.max_loc.add((row, col))
-
-        pass
-
+        scores = set()
+        for row in range(1, self.m_matrix.nrow):
+            for col in range(1, self.m_matrix.ncol):
+                score = self.m_matrix.get_score(row, col)
+                scores.add(score)
+        
+        max_score = max(scores)
+        max_loc = set()
+        for row in range(1, self.m_matrix.nrow):
+            for col in range(1, self.m_matrix.ncol):
+                if fuzzy_equals(self.m_matrix.get_score(row, col), max_score):
+                    max_loc.add((row, col))
+        return max_score, max_loc
+                
     def traceback(self): ### TO-DO! FILL IN additional arguments ###
         """
         Performs a traceback.
         Hint: include a way to printing the traceback path. This will be helpful for debugging!
            ex. M(5,4)->Iy(4,3)->M(4,2)->Ix(3,1)->Ix(2,1)->M(1,1)->M(0,0)
         """
-        ### TO-DO! FILL IN ###
-        pass
+        name_to_matrix = {"M": self.m_matrix, "Ix": self.ix_matrix, "Iy": self.iy_matrix}
+        paths = []
+
+        def traceback_depth_first_search(ptr, path):
+
+            name, row, col = ptr.name, ptr.row, ptr.col
+            matrix = name_to_matrix[name]
+            score_obj = matrix.get_score_obj(row, col)
+            # base case that we hit a boundary, add path to paths and return
+            if row == 0 or col == 0:
+                paths.append(path)
+                return
+
+            pointers = score_obj.pointers
+            # append pointer to path, recurse down path, and pop that most recently added pointer
+            for ptr in pointers:
+                traceback_depth_first_search(ptr, path + [ptr])
+        
+        # for each max location, perform a depth first search
+        max_loc = self.max_loc
+        for loc in max_loc:
+            score_entry_loc = self.m_matrix.get_score_obj(loc[0], loc[1])
+            pointers = score_entry_loc.pointers
+            for pointer in pointers:
+                path = [pointer]
+                traceback_depth_first_search(pointer, path)
+
+        return paths
+
+    def print_paths(self):
+        for i, path in enumerate(self.paths):
+            print(f"Path {i+1}: ", end="")
+            for pointer in path:
+                print(pointer, end=" -> ")
+            print("\n")
+
 
     def write_output(self):
         ### TO-DO! FILL IN ###
