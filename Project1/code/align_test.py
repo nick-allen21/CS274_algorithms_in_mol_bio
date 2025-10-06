@@ -21,9 +21,8 @@ Make sure align.py is located in the same directory, and the test_example.input 
 
 import unittest
 
-from align import *
-
-TEST_INPUT_FILE="test_example.input"
+from align_skeleton import *
+TEST_INPUT_FILE="/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project1/code/test_example.input"
 
 class TestAlignmentClasses(unittest.TestCase):
 
@@ -39,16 +38,28 @@ class TestAlignmentClasses(unittest.TestCase):
         """
         Tests score matrix object score set + get methods
         """
-        ### FILL IN ###
-        # this should be very similar to test match matrix
-        return
+        score_matrix = ScoreMatrix("S", 5, 4)
+        score_matrix.set_score(2, 2, 5)
+        # Act
+        got_entry = score_matrix.get_score(2, 2)
+        print("Got score:", got_entry.score, "Expected:", 5)
+        # Assert
+        self.assertAlmostEqual(got_entry.score, 5)
 
     def test_score_matrix_pointers(self):
         """
         Tests score matrix object pointer set + get methods
         """
-        ### FILL IN ###
-        return
+        score_matrix = ScoreMatrix("S", 5, 4)
+        score_matrix.set_score(2, 2, 5)
+        expected = [pointer(2, 2, "S")]
+        score_matrix.set_pointers(2, 2, expected)
+
+        got = score_matrix.get_pointers(2, 2)
+        print("Got pointers:", got, "Expected:", expected)
+
+        # With __eq__ on pointer, this should pass
+        self.assertEqual(got, expected)
 
     def test_param_loading(self):
         """
@@ -85,6 +96,15 @@ class TestAlignmentClasses(unittest.TestCase):
         align_params = AlignmentParameters()
         align_params.dy = 1
         align_params.ey = 0.5
+        # added these to make sure the update_ix method works
+        align_params.dx = 1
+        align_params.ex = 0.5
+
+        # ive added this to make sure the update_ix method works
+        align_params.alphabet_a = "ATGC"
+        align_params.alphabet_b = "ATGCX"
+        align_params.len_alphabet_a = 4
+        align_params.len_alphabet_b = 5
 
         # create an alignment object
         align = Align("", "")
@@ -98,27 +118,73 @@ class TestAlignmentClasses(unittest.TestCase):
         # run the method!
         align.update_ix(3, 2)
 
-        score = align.ix_matrix.get_score(3,2)
-        self.assertEqual(score, 2)
+        got_entry = align.ix_matrix.get_score(3, 2)
+        got_pointers = align.ix_matrix.get_pointers(3, 2)
 
-        ### FILL IN for checking pointers! ###
-        # note - in this example, it should point to M -AND- Ix
-        # check by hand!
-
+        # From M: 3 - dx = 2.0, from Ix: 2.5 - ex = 2.0, tie -> we want to include both pointers
+        self.assertTrue(fuzzy_equals(got_entry.score, 2.0))
+        self.assertEqual(set((p.name, p.row, p.col) for p in got_pointers),
+                        {("M", 2, 2), ("Ix", 2, 2)})
 
     def test_update_m(self):
-        """
-        Test AlignmentAlgorithm's update M
-        """
-        ### FILL IN ###
-        return
+        align_params = AlignmentParameters()
+        align_params.load_params_from_file(TEST_INPUT_FILE)
+
+        align = Align("", "")
+        align.align_params = align_params
+        
+        align.m_matrix = ScoreMatrix("M", 5, 4)
+        align.ix_matrix = ScoreMatrix("Ix", 5, 4)
+        align.iy_matrix = ScoreMatrix("Iy", 5, 4)
+        align.m_matrix.set_score(2, 2, 2.5)
+        align.ix_matrix.set_score(2, 2, 3)
+        align.iy_matrix.set_score(2, 2, 3)
+
+        align_params.match_matrix.set_score(align_params.seq_a[3], align_params.seq_b[3], 5)
+
+        align.update_m(3,3)
+
+        got_entry = align.m_matrix.get_score(3, 3)
+        got_pointers = align.m_matrix.get_pointers(3, 3)
+
+        print("Got score:", got_entry.score, "Expected:", 8)
+        print("Got pointers:", got_pointers, "Expected:", [pointer(2, 2, "Ix"), pointer(2, 2, "Iy")])
+
+        # From M: 2.5 + 5 = 7.5, from Ix: 3 + 5 = 8, from Iy: 3 + 3 = 8, will get points to Ix and Iy
+        self.assertAlmostEqual(got_entry.score, 8)
+        self.assertEqual(set((p.name, p.row, p.col) for p in got_pointers),
+                        {("Ix", 2, 2), ("Iy", 2, 2)})
     
     def test_update_iy(self):
         """
         Test AlignmentAlgorithm's update Iy
         """
-        ### FILL IN ###
-        return
+        align_params = AlignmentParameters()
+        align_params.load_params_from_file(TEST_INPUT_FILE)
+
+        align = Align("", "")
+        # dy = .6, # ey = .3
+        align.align_params = align_params
+
+        align.m_matrix = ScoreMatrix("M", 5, 4)
+        align.iy_matrix = ScoreMatrix("Iy", 5, 4)
+        align.m_matrix.set_score(2,2, 3.6)
+        align.iy_matrix.set_score(2,2, 3.2)
+
+        print("Starting update_iy")
+        align.update_iy(2,3)
+
+        got_entry = align.iy_matrix.get_score(2, 3)
+        got_pointers = align.iy_matrix.get_pointers(2, 3)
+    
+        
+        print("Got score:", got_entry.score, "Expected:", 3.0)
+        print("Got pointers:", got_pointers, "Expected:", [pointer(2, 2, "M")])
+
+        # From M: 3.6 - .6 = 3.0, from Iy: 3.2 - .3 = 2.0, should get max score 3 and points to M
+        self.assertAlmostEqual(got_entry.score, 3.0)
+        self.assertEqual(set((p.name, p.row, p.col) for p in got_pointers),
+                        {("M", 2, 2)})
 
     def test_traceback_start(self):
         """
@@ -130,4 +196,4 @@ class TestAlignmentClasses(unittest.TestCase):
 
 
 if __name__=='__main__':
-    unittest.main()
+    unittest.main(verbosity=3)

@@ -14,8 +14,39 @@ Usage: python align.py input_file output_file
 
 import sys
 
+class pointer(object):
+    """
+    Object to store a pointer in the score matrix.
+    """
+    def __init__(self, row, col, name):
+        self.row = row
+        self.col = col
+        self.name = name
+
+    def __repr__(self):
+        return f"{self.name}({self.row},{self.col})"
+
+    # define equality for pointer objects
+    def __eq__(self, other):
+        return isinstance(other, pointer) and \
+               self.row == other.row and self.col == other.col and self.name == other.name
+
+
+class ScoreEntry(object):
+    """
+    Object to store a score entry in the score matrix.
+    """
+    def __init__(self, row, col, score, matrix_name):
+        self.row = row
+        self.col = col
+        self.score = score
+        self.matrix_name = matrix_name
+        # (row, col, name). Important that we set what matrix we came from
+        self.pointers = []
+
 
 #### ------ USEFUL FUNCTIONS ------- ####
+
 def fuzzy_equals(a, b):
     """
     Checks if two floating point numbers are equivalent.
@@ -24,6 +55,30 @@ def fuzzy_equals(a, b):
     return (abs(a - b) < epsilon)
     
 
+def get_maxes(score_entry_list : list[ScoreEntry]):
+    """
+    This function takes in a list of score entries and returns the max scores, adjusting for equal values.
+    The scores in the list will already be adjusted for the addition of the score and gap penalties. The 
+    row and column in the list will be the row and column that we just came from 
+    
+    This function will return a score and the array of pointers that give us the max score
+    """
+
+    # if the list is empty, return 0 and an empty list
+    if not score_entry_list:
+        return 0, []
+
+    # Initialize the max score and pointer array
+    max_score = max(score_entry.score for score_entry in score_entry_list)
+    max_pointers = []
+
+    # Iterate through the list of score entries using special floating point logic 
+    for score_entry in score_entry_list:
+        if fuzzy_equals(score_entry.score, max_score):
+            max_pointers.append(pointer(score_entry.row, score_entry.col, score_entry.matrix_name))
+    return max_score, max_pointers
+
+
 #### ------- CLASSES ------- ####
 
 class MatchMatrix(object):
@@ -31,7 +86,7 @@ class MatchMatrix(object):
     Match matrix class stores the scores of matches in a data structure
     """
     def __init__(self):
-        # Init as 2d score array 
+        # Init as dict mapping tuples of characters to scores
         self.match_matrix_scores = {}
 
     def set_score(self, a, b, score):
@@ -61,16 +116,6 @@ class MatchMatrix(object):
         return self.match_matrix_scores[(a, b)]
 
 
-class ScoreEntry(object):
-    """
-    Object to store a score entry in the score matrix.
-    """
-    def __init__(self, row, col, score):
-        self.row = row
-        self.col = col
-        self.score = score
-        self.pointers = []
-
 class ScoreMatrix(object):
     """
     Object to store a score matrix, which generated during the alignment process. The score matrix consists of a 2-D array of
@@ -81,28 +126,29 @@ class ScoreMatrix(object):
         self.name = name # identifier for the score matrix - Ix, Iy, or M
         self.nrow = nrow
         self.ncol = ncol
-        self.score_matrix = [[ScoreEntry(row, col, 0) for col in range(ncol)] for row in range(nrow)]
-        # you need to figure out a way to represent this and how to initialize
-        # Hint: it may be helpful to have an object for each entry
 
+        # initialize the score matrix at zeroes for all entries, we don't penalize the end/start gaps
+        # down the line, we won't recompute these boundaries, first entry we compute is (1,1)
+        self.score_matrix = [[ScoreEntry(row, col, float(0), self.name) for col in range(ncol)] for row in range(nrow)]
+    
     def get_score(self, row, col):
-        # return the score for the given row and column
-        return self.score_matrix[row][col].score
-        
-    def set_score(self, row, col, score):    
+        # return the score entry obj for the given row and column
+        return self.score_matrix[row][col]
+
+    def set_score(self, row, col, score):
         # set the score for the given row and column
-        self.score_matrix[row][col].score = score
+        self.score_matrix[row][col] = ScoreEntry(row, col, score, self.name)
 
     def get_pointers(self, row, col):
         """
         Returns the indices of the entries that are pointed to
         This should be formatted as a list of tuples:
-         ex. [(1,1), (1,0)]
+         ex. [(1,1, "M"), (1,0, "Ix")]
         """
         return self.score_matrix[row][col].pointers
 
-    def set_pointers(self, row, col, pointers: list[tuple[int, int]]):
-        # set the pointers for the given row and column
+    def set_pointers(self, row, col, pointers: list[pointer]):
+        # set the pointers for the given row and column for score entry object
         self.score_matrix[row][col].pointers = pointers
 
 
@@ -120,15 +166,40 @@ class ScoreMatrix(object):
             0.0, 0.0, 1.0, 2.0, 3.0
 
         """
-        ### TO-DO! FILL IN ###
+        # format all cells to 2 decimals
+        cells = [[f"{self.score_matrix[r][c].score:.2f}" for c in range(self.ncol)] for r in range(self.nrow)]
+        # column widths
+        col_w = [max(len(cells[r][c]) for r in range(self.nrow)) for c in range(self.ncol)]
+        # header
+        print(f"{self.name}:")
+        # rows
+        for r in range(self.nrow):
+            line = "  ".join(cells[r][c].rjust(col_w[c]) for c in range(self.ncol))
+            print("  " + line)
 
 
     def print_pointers(self):
-        """
-        Returns a nicely formatted string containing the pointers for each entry in the score matrix. Use this for debugging!
-        """
+        # Build display strings per cell
+        cells = []
+        for r in range(self.nrow):
+            row_cells = []
+            for c in range(self.ncol):
+                pts = getattr(self.score_matrix[r][c], "pointers", [])
+                if not pts:
+                    s = "∅"
+                else:
+                    s = " ".join(f"{p.name}({p.row},{p.col})" for p in pts)
+                row_cells.append(s)
+            cells.append(row_cells)
 
-        ### TO-DO! FILL IN ###
+        # Column widths
+        col_w = [max(len(cells[r][c]) for r in range(self.nrow)) for c in range(self.ncol)]
+
+        print(f"{self.name} pointers:")
+        for r in range(self.nrow):
+            line = "  ".join(cells[r][c].ljust(col_w[c]) for c in range(self.ncol))
+            print("  " + line)
+
 
 class AlignmentParameters(object):
     """
@@ -169,7 +240,7 @@ class AlignmentParameters(object):
         self.seq_b = next(it)
 
         # global vs local
-        self.global_alignment = (next(it) == '1')
+        self.global_alignment = (next(it) == '0')
 
         # gap penalties
         self.dx, self.ex, self.dy, self.ey = map(float, next(it).split())
@@ -179,17 +250,15 @@ class AlignmentParameters(object):
         self.len_alphabet_b = int(next(it)); self.alphabet_b = next(it)
 
         # create match matrix
-        for row in range(self.len_alphabet_a):
-            for col in range(self.len_alphabet_b):
+        for row in range(1, self.len_alphabet_a + 1):
+            for col in range(1, self.len_alphabet_b + 1):
 
                 # getting indices and scores from next line in input file
                 i, j, a, b, s = next(it).split()
 
                 # checking to make sure the indices are correct
-                assert i == row and j == col
+                assert int(i)== row and int(j) == col
                 self.match_matrix.set_score(a, b, float(s))
-
-
 
 
 class Align(object):
@@ -224,6 +293,15 @@ class Align(object):
 
         # populate the score matrices based on the input parameters
         self.populate_score_matrices()
+        # final score matrixes 
+        print("\n2) Final Score Matrices:")
+        self.m_matrix.print_scores()
+        self.ix_matrix.print_scores()
+        self.iy_matrix.print_scores()
+
+        self.m_matrix.print_pointers()
+        self.ix_matrix.print_pointers()
+        self.iy_matrix.print_pointers()
 
         # perform a traceback and write the output to an output file
 
@@ -236,10 +314,27 @@ class Align(object):
         Note: You MUST initialize M, Ix, Iy in this function rather than elsewhere
         """
 
-        # initialize the score matrices, will all start at 0
+        # initialize the score matrices, will all start at 0, we won't recompute the boundaries
         self.m_matrix = ScoreMatrix("M", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
         self.ix_matrix = ScoreMatrix("Ix", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
         self.iy_matrix = ScoreMatrix("Iy", self.align_params.len_alphabet_a, self.align_params.len_alphabet_b)
+
+        # score matrixes 
+        print("\n1) Intitial Score Matrices:")
+        print("\nM: \n")
+        self.m_matrix.print_scores()
+        print("\nIx: \n")
+        self.ix_matrix.print_scores()
+        print("\nIy: \n")
+        self.iy_matrix.print_scores()
+
+        # update the score matrices 
+        for row in range(self.align_params.len_alphabet_a):
+            for col in range(self.align_params.len_alphabet_b):
+
+                # no need to check the boundaries again, we want zero because no start/end penalties
+                if row > 0 and col > 0:
+                    self.update(row, col)
 
     def update(self, row, col):
         """
@@ -249,21 +344,78 @@ class Align(object):
            row = the row index to update
            col = the column index to update
         """
+        # Update all three score matrices concurrently
+        # With boundaries set diagonally back, vertically back, and horizontally back should always have been populated
+        # across all three matrices
         self.update_m(row, col)
         self.update_ix(row, col)
         self.update_iy(row, col)
 
     def update_m(self, row, col):
-        # use recursion to update the score matrix
-        if row == 0 and col == 0:
+        
+        # create list of score entries
+        candidate_score_entries = []
+        prev = (row - 1, col - 1)
 
+        # get score for match from hash table
+        S_ij = self.align_params.match_matrix.get_score(self.align_params.seq_a[row], self.align_params.seq_b[col])
 
+        # make sure prev is in bound for matrices
+        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
+            
+            # loop through the three score matrices, create candidate score to represent score if we came from this potential space, and append to the list of score 
+            for matrix in [self.m_matrix, self.ix_matrix, self.iy_matrix]:
+                prev_score_obj = matrix.get_score(prev[0], prev[1])
+                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score + S_ij, prev_score_obj.matrix_name)
+                candidate_score_entries.append(cand)
+
+        # get the max score and pointers from list of score entries``
+        max_score, max_pointers = get_maxes(candidate_score_entries)
+        self.m_matrix.set_score(row, col, max_score)
+        self.m_matrix.set_pointers(row, col, max_pointers)
 
     def update_ix(self, row, col):
-        ### TO-DO! FILL IN ###
+
+        print("starting update_ix")
+        # initialize list of score entry objects
+        candidate_score_entries = []
+        
+        # declare prev and make sure it is in bound for matrices
+        prev = (row - 1, col)
+        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
+
+            # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
+            for matrix, penalty in zip([self.m_matrix, self.ix_matrix], [self.align_params.dx, self.align_params.ex]):
+                prev_score_obj = matrix.get_score(prev[0], prev[1])
+                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+                print("cand: ", cand)
+                candidate_score_entries.append(cand)
+
+        # get the max score and pointers
+        max_score, max_pointers = get_maxes(candidate_score_entries)
+        self.ix_matrix.set_score(row, col, max_score)
+        self.ix_matrix.set_pointers(row, col, max_pointers)
+         
 
     def update_iy(self, row, col):
-        ### TO-DO! FILL IN ###
+        
+        # initialize list of score entry objects
+        candidate_score_entries = []
+
+        # declare prev and make sure it is in bound for matrices
+        prev = (row, col - 1)
+        if prev[0] >= 0 and prev[1] >= 0 and prev[0] < self.align_params.len_alphabet_a and prev[1] < self.align_params.len_alphabet_b:
+
+            # loop through the two score matrices, adjust score to represent score if we came from this potential space, and append to the list of scores
+            for matrix, penalty in zip([self.m_matrix, self.iy_matrix], [self.align_params.dy, self.align_params.ey]):
+                prev_score_obj = matrix.get_score(prev[0], prev[1])
+                cand = ScoreEntry(prev[0], prev[1], prev_score_obj.score - penalty, prev_score_obj.matrix_name)
+                candidate_score_entries.append(cand)
+        
+        # get the max score and pointers
+        max_score, max_pointers = get_maxes(candidate_score_entries)
+        self.iy_matrix.set_score(row, col, max_score)
+        self.iy_matrix.set_pointers(row, col, max_pointers)
 
     def find_traceback_start(self):
         """
@@ -276,6 +428,7 @@ class Align(object):
              (ex. [(1,2), (3,4)])
         """
         ### TO-DO! FILL IN ###
+        pass
 
     def traceback(self): ### TO-DO! FILL IN additional arguments ###
         """
@@ -286,9 +439,11 @@ class Align(object):
 
         """
         ### TO-DO! FILL IN ###
+        pass
 
     def write_output(self):
         ### TO-DO! FILL IN ###
+        pass
 
 def main():
 
