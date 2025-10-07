@@ -568,8 +568,8 @@ class Align(object):
 
             # in local alignment if we find a zero, we terminate and return 
             if self.align_params.local_alignment and fuzzy_equals(float(score_obj.score), 0.0):
-                # paths.append(path[:-1])
-                paths.append(path)
+                paths.append(path[:-1])
+                # paths.append(path)
                 return
 
             if row == 0 or col == 0:
