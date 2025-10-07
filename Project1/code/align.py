@@ -15,6 +15,9 @@ Usage: python align.py input_file output_file
 import glob
 import sys
 import os
+from tqdm import tqdm
+import time
+import datetime
 
 # Here is my traceback pointer approach`
 class pointer(object):
@@ -322,7 +325,12 @@ class Align(object):
         ### TO-DO! FILL IN ###
         self.max_score, self.max_loc = self.find_traceback_start()
         print("Max score: ", self.max_score, "\nMax loc: ", self.max_loc)
+        cur_time = time.time()
+        # print time in datetime format
+        print("start traceback time: ", datetime.datetime.fromtimestamp(cur_time))
         self.paths = self.traceback()
+        print("endtime for traceback: ", datetime.datetime.fromtimestamp(time.time()))
+        print("time taken for traceback: ", time.time() - cur_time)
         # self.print_paths()
         self.write_output()
         # print("printing penalty paraments for debugging: dx :", self.align_params.dx, ", ex :", self.align_params.ex, ", dy :", self.align_params.dy, ", ey :", self.align_params.ey)
@@ -372,7 +380,7 @@ class Align(object):
         # self.iy_matrix.print_scores()
 
         # update the score matrices 
-        for row in range(1, nrow):
+        for row in tqdm(range(1, nrow), desc="Rows", total=nrow):
             for col in range(1, ncol):
                 self.update(row, col)
 

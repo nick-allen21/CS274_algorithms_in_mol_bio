@@ -102,8 +102,10 @@ def compare_alignments(outfile1, outfile2):
         print("Alignments match!")
         return True
     else:
-        print("%d alignments in file 1 that are not in file 2.\n\t%s" %(len(diff1), diff1))
-        print("%d alignments in file 2 that are not in file 1.\n\t%s" %(len(diff2), diff2))
+        # print("%d alignments in file 1 that are not in file 2.\n\t%s" %(len(diff1), diff1))
+        # print("%d alignments in file 2 that are not in file 1.\n\t%s" %(len(diff2), diff2))
+        print("alignemnts taht are in file 1 but not in file 2: ", len(diff1))
+        print("alignemnts taht are in file 2 but not in file 1: ", len(diff2))
         return False
     
 
