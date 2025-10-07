@@ -1,28 +1,29 @@
 
 """
+This file is Nick Allen's implementation of the alignment algorithm.
+ALign supports both global and local alignment.
+The align function is the main function that is called to align the sequences.
+The populate_score_matrices function is used to populate the score matrices.
+The update function is used to update the score matrices.
+The find_traceback_start function is used to find the start of the traceback.
+The traceback function is used to perform the traceback.
+The write_output function is used to write the output to the output file.
 
-This file provides skeleton code for align.py. 
-
-Locations with "FILL IN" in comments are where you need to add code.
-
-Note - you MUST follow this structure or else the autograder will not run properly
-
-Usage: python align.py input_file output_file
-
+Last Updated: 10/07/2025
 """
-
-
-import glob
 import sys
 import os
 from tqdm import tqdm
 import time
 import datetime
 
-# Here is my traceback pointer approach`
+# Here is my traceback pointer approach
 class pointer(object):
     """
     Object to store a pointer in the score matrix.
+    row: the row of the pointer
+    col: the column of the pointer
+    name: the name of the pointer
     """
     def __init__(self, row, col, name):
         self.row = row
@@ -30,17 +31,22 @@ class pointer(object):
         self.name = name
 
     def __repr__(self):
+        # return the pointer as a string
         return f"{self.name}({self.row},{self.col})"
 
-    # define equality for pointer objects
+    # define equality for pointer objects, used in testing
     def __eq__(self, other):
-        return isinstance(other, pointer) and \
-               self.row == other.row and self.col == other.col and self.name == other.name
+        return isinstance(other, pointer) and self.row == other.row and self.col == other.col and self.name == other.name
 
 
 class ScoreEntry(object):
     """
     Object to store a score entry in the score matrix.
+    row: the row of the score entry
+    col: the column of the score entry
+    score: the score of the score entry
+    matrix_name: the name of the matrix that the score entry is in
+    pointers: the pointers to the score entry
     """
     def __init__(self, row, col, score, matrix_name):
         self.row = row
@@ -50,8 +56,6 @@ class ScoreEntry(object):
         # (row, col, name). Important that we set what matrix we came from
         self.pointers = []
 
-
-#### ------ USEFUL FUNCTIONS ------- ####
 
 def fuzzy_equals(a, b):
     """
@@ -83,9 +87,6 @@ def get_maxes(score_entry_list : list[ScoreEntry]):
         if fuzzy_equals(score_entry.score, max_score):
             max_pointers.append(pointer(score_entry.row, score_entry.col, score_entry.matrix_name))
     return max_score, max_pointers
-
-
-#### ------- CLASSES ------- ####
 
 class MatchMatrix(object):
     """
@@ -135,18 +136,25 @@ class ScoreMatrix(object):
 
         # initialize the score matrix at zeroes for all entries, we don't penalize the end/start gaps
         # down the line, we won't recompute these boundaries, first entry we compute is (1,1)
+        # Here is where I could add end-gap penalties
         self.score_matrix = [[ScoreEntry(row, col, float(0), self.name) for col in range(ncol)] for row in range(nrow)]
     
     def get_score(self, row, col):
-        # return the score entry obj for the given row and column
+        """
+        Returns the score for the given row and column
+        """
         return self.score_matrix[row][col].score
 
     def get_score_obj(self, row, col):
-        # return the score value for the given row and column
+        """
+        Returns the score entry object for the given row and column
+        """
         return self.score_matrix[row][col]
 
     def set_score(self, row, col, score):
-        # set the score for the given row and column
+        """
+        Sets the score for the given row and column
+        """
         self.score_matrix[row][col] = ScoreEntry(row, col, score, self.name)
 
     def get_pointers(self, row, col):
@@ -158,7 +166,9 @@ class ScoreMatrix(object):
         return self.score_matrix[row][col].pointers
 
     def set_pointers(self, row, col, pointers: list[pointer]):
-        # set the pointers for the given row and column for score entry object
+        """
+        Sets the pointers for the given row and column for score entry object
+        """
         self.score_matrix[row][col].pointers = pointers
 
 
@@ -198,7 +208,7 @@ class ScoreMatrix(object):
                 if not pts:
                     s = "∅"
                 else:
-                    s = " ".join(f"{p.name}({p.row},{p.col})" for p in pts)
+                    s = " ".join(f"{p}" for p in pts)
                 row_cells.append(s)
             cells.append(row_cells)
 
@@ -223,10 +233,10 @@ class AlignmentParameters(object):
         self.seq_b = ""
         self.global_alignment = False 
         self.local_alignment = False
-        self.dx = 0 # open gap penalty in A (I_x, skip row)
-        self.ex = 0 # extend gap penalty in A (I_x, skip row)
-        self.dy = 0 # open gap penalty in B (I_y, skip col)
-        self.ey = 0 # extend gap penalty in B (I_y, skip col)
+        self.dx = 0 # open gap penalty in A (I_y, skip row)
+        self.ex = 0 # extend gap penalty in A (I_y, skip row)
+        self.dy = 0 # open gap penalty in B (I_x, skip col)
+        self.ey = 0 # extend gap penalty in B (I_x, skip col)
         self.alphabet_a = "" 
         self.alphabet_b = ""
         self.len_alphabet_a = 0
@@ -269,7 +279,7 @@ class AlignmentParameters(object):
                 # getting indices and scores from next line in input file
                 i, j, a, b, s = next(it).split()
 
-                # checking to make sure the indices are correct
+                # checking to make sure the indices are correct for downstream interpretaton of the alignment
                 assert int(i)== row and int(j) == col
                 self.match_matrix.set_score(a, b, float(s))
 
@@ -289,13 +299,14 @@ class Align(object):
         self.output_file = output_file
         self.align_params = AlignmentParameters() 
 
-        # Note the below three lines is ensure the autograder runs properly.
-        # You should leave the below three lines as is but then
-        # Initialize m_matrix, ix_matrix, and iy_matrix in populate_score_matrices
+        # initialize the score matrices
         self.m_matrix = None
         self.ix_matrix = None
         self.iy_matrix = None
 
+        # Here is where I could add end-gap penalties, would init matrices with d + e*i and d + e*j for row = 0 and col = 0
+
+        # initialize the max score and location
         self.max_score = 0
         self.max_loc = set()
         self.paths = []
@@ -310,32 +321,15 @@ class Align(object):
 
         # populate the score matrices based on the input parameters
         self.populate_score_matrices()
-        # final score matrixes 
-        # print("\n2) Final Score Matrices:")
-        # self.m_matrix.print_scores()
-        # self.ix_matrix.print_scores()
-        # self.iy_matrix.print_scores()
-
-        # self.m_matrix.print_pointers()
-        # self.ix_matrix.print_pointers()
-        # self.iy_matrix.print_pointers()
-
-        # perform a traceback and write the output to an output file
-
-        ### TO-DO! FILL IN ###
+        
+        # find the traceback start and max score 
         self.max_score, self.max_loc = self.find_traceback_start()
-        print("Max score: ", self.max_score, "\nMax loc: ", self.max_loc)
-        cur_time = time.time()
-        # print time in datetime format
-        print("start traceback time: ", datetime.datetime.fromtimestamp(cur_time))
+        
+        # perform the traceback
         self.paths = self.traceback()
-        print("endtime for traceback: ", datetime.datetime.fromtimestamp(time.time()))
-        print("time taken for traceback: ", time.time() - cur_time)
-        # self.print_paths()
+    
+        # write the output to an output file
         self.write_output()
-        # print("printing penalty paraments for debugging: dx :", self.align_params.dx, ", ex :", self.align_params.ex, ", dy :", self.align_params.dy, ", ey :", self.align_params.ey)
-        # Alignment = "LOCAL ALIGNMENT" if self.align_params.local_alignment else "GLOBAL ALIGNMENT"
-        # print("Alignment: ", Alignment)
 
     def populate_score_matrices(self):
         """
@@ -352,35 +346,8 @@ class Align(object):
         self.ix_matrix = ScoreMatrix("Ix", nrow, ncol)
         self.iy_matrix = ScoreMatrix("Iy", nrow, ncol)
 
-        # forbid starting in gap states
-        # Here is where I could add end-gap penalties
-        # Here is one of the bug fixes I mentioned in my quiz
-        # neg_inf = float('-inf')
-
-        # # if self.align_params.global_alignment:
-        #     # forbid starting in gap states
-        # for j in range(self.ix_matrix.ncol):
-        #     self.ix_matrix.set_score(0, j, neg_inf)
-        # for i in range(self.ix_matrix.nrow):
-        #     self.ix_matrix.set_score(i, 0, neg_inf)
-
-        # for j in range(self.iy_matrix.ncol):
-        #     self.iy_matrix.set_score(0, j, neg_inf)
-        # for i in range(self.iy_matrix.nrow):
-        #     self.iy_matrix.set_score(i, 0, neg_inf)
-
-
-        # score matrixes 
-        # print("\n1) Intitial Score Matrices:")
-        # print("\nM: \n")
-        # self.m_matrix.print_scores()
-        # print("\nIx: \n")
-        # self.ix_matrix.print_scores()
-        # print("\nIy: \n")
-        # self.iy_matrix.print_scores()
-
         # update the score matrices 
-        for row in tqdm(range(1, nrow), desc="Rows", total=nrow):
+        for row in range(1, nrow):
             for col in range(1, ncol):
                 self.update(row, col)
 
@@ -400,7 +367,12 @@ class Align(object):
         self.update_iy(row, col)
 
     def update_m(self, row, col):
-        
+        """
+        Method to update the M matrix at a given row and column index. 
+        Creates a list of score entries to represent the score 
+        if we came from this potential space according to our recursion relations, 
+        and then gets the max score and pointers from the list of score entries.
+        """
         # create list of score entries
         candidate_score_entries = []
         prev = (row - 1, col - 1)
@@ -418,6 +390,7 @@ class Align(object):
             if self.align_params.local_alignment:
                 update_score = max(float(0), update_score)
 
+            # create score entry object and append to candidate list
             cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
@@ -428,7 +401,12 @@ class Align(object):
         self.m_matrix.set_pointers(row, col, max_pointers)
 
     def update_ix(self, row, col):
-
+        """
+        Method to update the Ix matrix at a given row and column index.
+        Creates a list of score entries to represent the score 
+        if we came from this potential space according to our recursion relations, 
+        and then gets the max score and pointers from the list of score entries.
+        """
         # initialize list of score entry objects
         candidate_score_entries = []
         
@@ -443,6 +421,7 @@ class Align(object):
             if self.align_params.local_alignment:
                 update_score = max(float(0), update_score)
 
+            # create score entry object and append to candidate list
             cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
 
@@ -454,7 +433,12 @@ class Align(object):
          
 
     def update_iy(self, row, col):
-        
+        """
+        Method to update the Iy matrix at a given row and column index.
+        Creates a list of score entries to represent the score 
+        if we came from this potential space according to our recursion relations, 
+        and then gets the max score and pointers from the list of score entries.
+        """
         # initialize list of score entry objects
         candidate_score_entries = []
 
@@ -470,6 +454,7 @@ class Align(object):
             if self.align_params.local_alignment:
                 update_score = max(float(0), update_score)
 
+            # create score entry object and append to candidate list
             cand = ScoreEntry(prev[0], prev[1], update_score, prev_score_obj.matrix_name)
             candidate_score_entries.append(cand)
         
@@ -535,64 +520,40 @@ class Align(object):
             # round the max score to 1 decimal places
             return round(float(max_score), 1), max_loc
                 
-    # Here is my traceback pointer approach`
-    def traceback(self): ### TO-DO! FILL IN additional arguments ###
+    # Here is my traceback pointer approach
+    def traceback(self): 
         """
         Performs a traceback.
         Hint: include a way to printing the traceback path. This will be helpful for debugging!
            ex. M(5,4)->Iy(4,3)->M(4,2)->Ix(3,1)->Ix(2,1)->M(1,1)->M(0,0)
         """
+
+        # initialize the name to matrix dictionary and paths
         name_to_matrix = {"M": self.m_matrix, "Ix": self.ix_matrix, "Iy": self.iy_matrix}
         paths = []
 
-        def prevent_right_sided(ptrs: list[pointer]):
-            """
-            During local alignment, if you trace back to a cell that contains pointers to a zero in the M matrix 
-            and a pointer to a zero in the Ix or Iy matrix, you should only follow the pointer to the zero in the
-            M matrix and terminate your traceback there only. 
-            This will prevent you from having alignments that are right-sided substrings.
-            """
-            # only check for right-sided substrings in local alignment
-            ptr_names = [ptr.name for ptr in ptrs]
-            if "M" in ptr_names and ("Ix" in ptr_names or "Iy" in ptr_names):
-                m_matrix = name_to_matrix["M"]
-                ix_matrix = name_to_matrix["Ix"]
-                iy_matrix = name_to_matrix["Iy"]
-                
-                m_ptr_scores = [m_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "M"]
-                i_ptr_scores = [ix_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "Ix"]
-                i_ptr_scores += [iy_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "Iy"]
-                if all(fuzzy_equals(float(score), 0.0) for score in m_ptr_scores) and any(fuzzy_equals(float(score), 0.0) for score in i_ptr_scores):
-                    return [ptr for ptr in ptrs if ptr.name == "M"]
-            return ptrs
-
         # Here is one of the bug fixes I mentioned in my quiz
         def traceback_depth_first_search(ptr, path):
-
+            """
+            Helper function to perform a depth first search of the traceback use pointers as edges and score entry objects as nodes
+            """
             name, row, col = ptr.name, ptr.row, ptr.col
             matrix = name_to_matrix[name]
             score_obj = matrix.get_score_obj(row, col)
-            # base case that we hit a boundary, add path to paths and return
 
             # in local alignment if we find a zero, we terminate and return 
             if self.align_params.local_alignment and fuzzy_equals(float(score_obj.score), 0.0):
                 paths.append(path[:-1])
-                # paths.append(path)
                 return
-
+            
+            # base case that we hit a boundary, add path to paths and return
             if row == 0 or col == 0:
                 paths.append(path)
                 return
 
+            # get the pointers for the score entry object
             pointers = score_obj.pointers
-            # if self.align_params.local_alignment:
-            #     pointers = prevent_right_sided(pointers)
-
-            # inside traceback_depth_first_search, after pointers = score_obj.pointers
-            # if not self.align_params.local_alignment:
-            #     if any(p.row == 0 or p.col == 0 for p in pointers):
-            #         pointers = [p for p in pointers if p.name == "M" and p.row == 0 and p.col == 0]
-
+          
             # recuse down path with each pointer
             for ptr in pointers:
                 traceback_depth_first_search(ptr, path + [ptr])
@@ -610,6 +571,7 @@ class Align(object):
 
 
         # clean up paths to remove all right-sided substrings by removing all pointers that end in Ix and Iy matrices
+        # remove all paths that does not start and end in the M matrix (shouldnt be possible as we start by pointing to the M matrix)
         # return paths
         return_paths = []
         for path in paths:
@@ -618,6 +580,9 @@ class Align(object):
         return return_paths
 
     def print_paths(self):
+        """
+        Method to print the paths.
+        """
         for i, path in enumerate(self.paths):
             print(f"Path {i+1}: ", end="")
             for pointer in path:
@@ -625,67 +590,46 @@ class Align(object):
             print("\n")
 
 
-    # def write_output(self):
-    #     alignments = []
-    #     seen = set()
-    #     # complete the emission process for each path 
-    #     # each path represents a potential alignment
-    #     for path in self.paths:
-    #         alignment = {"a": "", "b": ""}
-            
-    #         # we want to emit from the start to the end because that is how sequences are represented
-    #         # while in path, we have pointers that go from the end to the start
-    #         for ptr in reversed(path): 
-    #             row, col, name = ptr.row, ptr.col, ptr.name
-    #             # skip boundary pointers (no emission)
-    #             if row == 0 or col == 0:
-    #                 continue
-
-    #             # if diagonal, emit one letter from a, on letter from b
-    #             if name == "M":
-    #                 alignment["a"] += self.align_params.seq_a[row - 1]
-    #                 alignment["b"] += self.align_params.seq_b[col - 1]
-
-    #             # if horizontal, emit B[i] aligned with a gap 
-    #             elif name == "Ix":
-    #                 alignment["a"] += self.align_params.seq_a[row - 1]
-    #                 alignment["b"] += "_"
-
-    #             # if vertical, emit A[j] aligned with a gap 
-    #             elif name == "Iy":
-    #                 alignment["a"] += "_"
-    #                 alignment["b"] += self.align_params.seq_b[col - 1]
-
-    #         # key = ("".join(alignment["a"]), "".join(alignment["b"]))
-    #         # if key not in seen:
-    #         #     seen.add(key)
-    #         alignments.append(alignment)
-        
-    #     # write the alignments to the output file
-    #     with open(self.output_file, "w") as f:
-    #         f.write(str(self.max_score) + "\n\n")
-    #         for alignment in alignments:
-    #             f.write(alignment["a"] + "\n")
-    #             f.write(alignment["b"] + "\n")
-    #             f.write("\n")
     def  write_output(self):
+        """
+        Method to write the output to the output file. Ensure that we dont write the same alignment twice.
+        Reverse the path to get the correct alignment.
+        Also write the max score to the output file.
+        Special formatting for the autograder.
+        """
         alignments = []
         seen = set()
+
+        # Will create an alignment for each path
         for path in self.paths:
             a = []; b = []
+
+            # pointers go from the end to the start, we want start to end
             for ptr in reversed(path):
                 i, j, name = ptr.row, ptr.col, ptr.name
+
+                # skip if we hit a boundary
                 if i == 0 or j == 0: continue
+
+                # if diagonal, emit one char from each sequence
                 if name == "M":
                     a.append(self.align_params.seq_a[i-1]); b.append(self.align_params.seq_b[j-1])
+
+                # if horizontal, emit a gap for b and char for a
                 elif name == "Ix":
                     a.append(self.align_params.seq_a[i-1]); b.append("_")
-                else:  # "Iy"
+
+                # if vertical, emit a gap for a and char for b
+                else:
                     a.append("_"); b.append(self.align_params.seq_b[j-1])
+
+            # create the key for the alignment and add to seen if not already in seen, never append the same alignment twice
             key = ("".join(a), "".join(b))
             if key not in seen:
                 seen.add(key)
                 alignments.append({"a": key[0], "b": key[1]})
+            
+        # write the output to the output file
         with open(self.output_file, "w") as f:
             f.write(str(self.max_score) + "\n\n")
             for al in alignments:
@@ -710,7 +654,6 @@ def main():
     # create an align object and run
     align = Align(input_file, output_file)
     align.align()
-
 
 if __name__=="__main__":
     main()
