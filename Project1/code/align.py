@@ -322,6 +322,8 @@ class Align(object):
         self.paths = self.traceback()
         # self.print_paths()
         self.write_output()
+        Alignment = "LOCAL ALIGNMENT" if self.align_params.local_alignment else "GLOBAL ALIGNMENT"
+        print("Alignment: ", Alignment)
 
     def populate_score_matrices(self):
         """
@@ -341,16 +343,18 @@ class Align(object):
         # forbid starting in gap states
         neg_inf = float('-inf')
 
-        # forbid starting in gap states
-        for j in range(self.ix_matrix.ncol):
-            self.ix_matrix.set_score(0, j, neg_inf)
-        for i in range(self.ix_matrix.nrow):
-            self.ix_matrix.set_score(i, 0, neg_inf)
+        if self.align_params.global_alignment:
+            # forbid starting in gap states
+            for j in range(self.ix_matrix.ncol):
+                self.ix_matrix.set_score(0, j, neg_inf)
+            for i in range(self.ix_matrix.nrow):
+                self.ix_matrix.set_score(i, 0, neg_inf)
 
-        for j in range(self.iy_matrix.ncol):
-            self.iy_matrix.set_score(0, j, neg_inf)
-        for i in range(self.iy_matrix.nrow):
-            self.iy_matrix.set_score(i, 0, neg_inf)
+            for j in range(self.iy_matrix.ncol):
+                self.iy_matrix.set_score(0, j, neg_inf)
+            for i in range(self.iy_matrix.nrow):
+                self.iy_matrix.set_score(i, 0, neg_inf)
+
 
         # score matrixes 
         print("\n1) Intitial Score Matrices:")
@@ -535,9 +539,9 @@ class Align(object):
                 m_matrix = name_to_matrix["M"]
                 ix_matrix = name_to_matrix["Ix"]
                 iy_matrix = name_to_matrix["Iy"]
-                m_ptr_scores = [m_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "M"]
-                i_ptr_scores = [ix_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "Ix"]
-                i_ptr_scores += [iy_matrix.get_score_obj(ptr.row, ptr.col).score for ptr in ptrs if ptr.name == "Iy"]
+                m_ptr_scores = [m_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "M"]
+                i_ptr_scores = [ix_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "Ix"]
+                i_ptr_scores += [iy_matrix.get_score(ptr.row, ptr.col) for ptr in ptrs if ptr.name == "Iy"]
                 if all(fuzzy_equals(float(score), 0.0) for score in m_ptr_scores) and any(fuzzy_equals(float(score), 0.0) for score in i_ptr_scores):
                     return [ptr for ptr in ptrs if ptr.name == "M"]
             return ptrs

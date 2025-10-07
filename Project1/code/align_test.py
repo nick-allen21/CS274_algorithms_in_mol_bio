@@ -21,8 +21,12 @@ Make sure align.py is located in the same directory, and the test_example.input 
 
 import unittest
 
-from align_skeleton import *
+from align import *
 TEST_INPUT_FILE="/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project1/code/test_example.input"
+TEST_INPUT_FILE_OUTPUT="/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project1/code/test_example1.output"
+TEST_INPUT_FILE_LOC="/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project1/code/test_example1.input"
+TEST_INPUT_FILE_OUTPUT_LOC="/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project1/code/test_example1.output"
+
 
 class TestAlignmentClasses(unittest.TestCase):
 
@@ -184,7 +188,21 @@ class TestAlignmentClasses(unittest.TestCase):
         Should test local and global alignment!
         """
         ### FILL IN ###
-        return
+        # input variables
+        input_file = TEST_INPUT_FILE
+        output_file = TEST_INPUT_FILE_OUTPUT
+
+        test_input_file_loc = TEST_INPUT_FILE_LOC
+        test_input_file_output_loc = TEST_INPUT_FILE_OUTPUT_LOC
+
+        # create an align object and run
+        align = Align(input_file, output_file)
+        align.align()
+        self.assertEqual(align.max_loc, {(5, 4)})
+
+        align = Align(test_input_file_loc, test_input_file_output_loc)
+        align.align()
+        self.assertEqual(align.max_loc, {(5, 4)})
 
 
 if __name__=='__main__':
