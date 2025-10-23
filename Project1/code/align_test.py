@@ -186,12 +186,15 @@ class TestAlignmentClasses(unittest.TestCase):
         """
         Tests that the traceback finds the correct start
         Should test local and global alignment!
+
+        This test will only work if all upstream tests pass!
         """
-        ### FILL IN ###
         # input variables
+        # global alignment file
         input_file = TEST_INPUT_FILE
         output_file = TEST_INPUT_FILE_OUTPUT
 
+        # local alignment file
         test_input_file_loc = TEST_INPUT_FILE_LOC
         test_input_file_output_loc = TEST_INPUT_FILE_OUTPUT_LOC
 

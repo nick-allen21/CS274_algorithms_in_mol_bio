@@ -540,6 +540,7 @@ class Align(object):
 
             # in local alignment if we find a zero, we terminate and return 
             if self.align_params.local_alignment and fuzzy_equals(float(score_obj.score), 0.0):
+                # Here is one of the bug fixes I mentioned in my quiz
                 paths.append(path[:-1])
                 return
             
