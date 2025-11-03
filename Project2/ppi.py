@@ -116,12 +116,13 @@ class PPI:
         """
         # create a index for each node in order to building an embedding matrix 
         # each column of the matrix is a node embedding
+        # EFFICIENCY FIX:
         node_to_index = {node: i for i, node in enumerate(gene_nodes)}
 
-        # take embedding list and build a matrix where each column is a node embedding
+        # take embedding list and build a matrix where each column is a node embedding as opposed to looping through each gene
         embeddings_matrix = np.vstack(gene_embeddings)
 
-        # disease genes from input file (clean: drop NaNs/empties) and restrict to nodes present in graph
+        # disease genes from input file clean and restrict to nodes present in graph
         disease_genes = [g.strip() for g in self.disease_gene_df["gene"].dropna().astype(str) if g and str(g).strip()]
         disease_genes_in_graph = [g for g in disease_genes if g in node_to_index]
 
@@ -134,9 +135,10 @@ class PPI:
             idx = node_to_index[dg]
 
             # get the embedding for the disease gene matrix 
-            dg_vec = embeddings_matrix[idx:idx+1, :]  # shape (1, d)
+            dg_vec = embeddings_matrix[idx:idx+1, :]
 
             # flatten to 1D array to get distances between disease gene and all other known disease genes
+            # far more efficient than looping through each gene and computing the distance for each gene
             dists = cosine_distances(dg_vec, embeddings_matrix).ravel()
             close_indices = np.where(dists <= float(threshold))[0]
             for ci in close_indices:

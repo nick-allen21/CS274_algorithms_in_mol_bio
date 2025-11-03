@@ -61,6 +61,32 @@ class GSEA:
                 kegg_sets[set_name] = set(genes)
         self.kegg_sets = kegg_sets
 
+    def get_fc_for_gene(self, gene):
+        """
+        Return the log fold-change (patients - controls) for a single gene.
+        If the gene is not present in the expression table, return None.
+        """
+        # 1) Identify patient/control columns 
+        samp = self.samp_df.copy()
+        samp['label'] = samp['label'].astype(int)
+        patient_cols = [s for s in samp.loc[samp['label'] == 1, 'sample'] if s in self.exp_df.columns]
+        control_cols = [s for s in samp.loc[samp['label'] == 0, 'sample'] if s in self.exp_df.columns]
+
+        # 2) Index expression by gene symbol
+        exp = self.exp_df.copy()
+        gene_col = 'SYMBOL' if 'SYMBOL' in exp.columns else exp.columns[0]
+        exp = exp.set_index(gene_col)
+
+        # 3) Vectorized logFC for all genes, then select the one requested
+        patient_mean = exp[patient_cols].mean(axis=1)
+        control_mean = exp[control_cols].mean(axis=1)
+        logfc = (patient_mean - control_mean)
+
+        # 4) Normalize the lookup key to match symbols
+        key = str(gene).strip().upper()
+        return float(logfc.loc[key]) if key in logfc.index else None
+
+
     def get_gene_rank_order(self):
         """
         should return a list of all genes (as strings) ranked by their logFC between patient and control, 
@@ -78,8 +104,10 @@ class GSEA:
         exp = exp.set_index(gene_col)
 
         # compute the mean expression for the patient and control samples
+        # EFFICIENCY FIX:
         patient_mean = exp[patient_cols].mean(axis=1)
         control_mean = exp[control_cols].mean(axis=1)
+        # compute FC leverage pandas dataframe operations as opposed to looping through each gene
         logfc = patient_mean - control_mean
 
         # rank the genes by their logFC
@@ -184,6 +212,10 @@ class GSEA:
         """
         self.load_data(expfile, sampfile, keggfile)
         all_gene_sets = list(self.kegg_sets.keys())
+
+        # get BMP4 logFC for the quiz 
+        bmp4_logfc = self.get_fc_for_gene('BMP4')
+        print(f"BMP4 logFC: {bmp4_logfc}")
 
         # loop through all gene sets and calculate the enrichment score and background distribution
         for gene_set in tqdm(all_gene_sets, desc="Running GSEA for all gene sets", total=len(all_gene_sets)):
