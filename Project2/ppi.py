@@ -63,9 +63,9 @@ class PPI:
         self.disease_gene_df = disease_gene_df
         self.interaction_df = interaction_df
 
-        # store interaction network as a networkx graph
+        # store interaction network as an UNWEIGHTED networkx graph (ignore weights completely)
         self.interaction_graph = nx.from_pandas_edgelist(
-            interaction_df, source="gene1", target="gene2", edge_attr="weight", create_using=nx.Graph()
+            interaction_df, source="gene1", target="gene2", create_using=nx.Graph()
         )
         logger.info(
             "Loaded %d disease genes, %d interactions -> graph with %d nodes, %d edges",
@@ -193,7 +193,7 @@ def main():
     interaction_file = sys.argv[2]
     logger.info("Invoked with disease_gene_file=%s, interaction_file=%s", disease_gene_file, interaction_file)
     ppi = PPI()
-    threshold = .5
+    threshold = .1
     logger.info("Using default threshold=%s", threshold)
     ppi.run_ppi(disease_gene_file, interaction_file, threshold)
 
