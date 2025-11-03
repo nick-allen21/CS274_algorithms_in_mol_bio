@@ -159,6 +159,37 @@ class PPI:
         line = "\t".join([pathway_name, description] + genes_sorted)
         with open("similar_genes.txt", "w") as f:
             f.write(line + "\n")
+        print(f"Number of similar genes: {len(similar_genes)}")
+
+    def count_interaction_pairs_outside_threshold(self, gene_nodes, gene_embeddings, threshold: float) -> None:
+        """
+        Count interacting gene pairs (edges in the interaction file) whose cosine distance
+        in the embedding space is greater than the given threshold. Prints the count and a
+        brief rationale for why this can happen.
+        """
+        # Build quick lookup and normalized embedding matrix for fast cosine distance via dot product
+        node_to_index = {g: i for i, g in enumerate(gene_nodes)}
+        emb = np.vstack(gene_embeddings)
+        norms = np.linalg.norm(emb, axis=1, keepdims=True)
+        emb_norm = emb / (norms + 1e-12)
+
+        total = 0
+        outside = 0
+        for _, row in self.interaction_df[["gene1", "gene2"]].iterrows():
+            g1, g2 = row["gene1"], row["gene2"]
+            if g1 in node_to_index and g2 in node_to_index:
+                total += 1
+                i, j = node_to_index[g1], node_to_index[g2]
+                # Cosine distance = 1 - cosine similarity
+                cos_sim = float(np.dot(emb_norm[i], emb_norm[j]))
+                cos_dist = 1.0 - cos_sim
+                if cos_dist > threshold:
+                    outside += 1
+
+        print(f"At distance threshold {threshold}, {outside} of {total} documented interacting pairs exceed the threshold.")
+        print("These pairs can appear distant because Node2Vec captures broader random-walk co-occurrence, "
+              "not just single edges. Using an unweighted graph, noise/indirect associations, and specific "
+              "hyperparameters can place some directly interacting genes farther apart in the embedding space.")
 
 
 def main():
@@ -175,8 +206,12 @@ def main():
     disease_gene_file = sys.argv[1]
     interaction_file = sys.argv[2]
     ppi = PPI()
-    threshold = .1
+    threshold = .2
     ppi.run_ppi(disease_gene_file, interaction_file, threshold)
+
+    # # Separate analysis: count interacting pairs beyond a small threshold using current embeddings
+    # gene_nodes, gene_embeddings = ppi.calculate_embedding()
+    # ppi.count_interaction_pairs_outside_threshold(gene_nodes, gene_embeddings, 0.1)
 
 
 if __name__ == "__main__":

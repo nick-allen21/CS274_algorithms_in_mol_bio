@@ -3,6 +3,7 @@ import pandas as pd
 import math
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class GSEA:
     """
@@ -205,6 +206,71 @@ class GSEA:
                 significant_sets.append(gene_set)
 
         return significant_sets
+
+    def count_unique_kegg_genes(self) -> int:
+        """
+        Return the number of unique genes across all KEGG sets.
+        Requires load_data(...) to have been called.
+        """
+        if self.kegg_sets is None:
+            raise ValueError("Data not loaded. Call load_data(expfile, sampfile, keggfile) first.")
+        unique = set()
+        for genes in self.kegg_sets.values():
+            unique.update(genes)
+        return len(unique)
+
+    def plot_kegg_gene_occurrence_histogram(self, out_file: str = "kegg_gene_occurrences_hist.png", show: bool = False) -> None:
+        """
+        Plot a histogram where the x-axis is the number of KEGG sets a gene appears in,
+        and the y-axis is the number of genes with that occurrence count.
+        Saves the figure to 'out_file' by default; set show=True to display.
+        """
+        if self.kegg_sets is None:
+            raise ValueError("Data not loaded. Call load_data(expfile, sampfile, keggfile) first.")
+
+        # Count occurrences per gene across all sets
+        from collections import Counter
+        gene_counts = Counter()
+        for genes in self.kegg_sets.values():
+            gene_counts.update(genes)
+
+        # Frequency of occurrence counts (how many genes have count c)
+        count_freq = Counter(gene_counts.values())
+        xs = sorted(count_freq.keys())
+        ys = [count_freq[x] for x in xs]
+
+        plt.figure(figsize=(8, 5))
+        plt.bar(xs, ys, color="steelblue")
+        plt.xlabel("number of occurrences")
+        plt.ylabel("number of genes")
+        plt.title("Gene occurrences across KEGG sets")
+        # Limit tick clutter for large ranges
+        if len(xs) <= 30:
+            plt.xticks(xs)
+        plt.tight_layout()
+        if out_file:
+            plt.savefig(out_file, dpi=150)
+        if show:
+            plt.show()
+        plt.close()
+
+    def most_frequent_kegg_genes(self):
+        """
+        Return (genes, count) where genes is a sorted list of gene symbols that
+        appear in the largest number of KEGG sets, and count is that maximum
+        occurrence count. Requires load_data to have been called.
+        """
+        if self.kegg_sets is None:
+            raise ValueError("Data not loaded. Call load_data(expfile, sampfile, keggfile) first.")
+        from collections import Counter
+        gene_counts = Counter()
+        for genes in self.kegg_sets.values():
+            gene_counts.update(genes)
+        if not gene_counts:
+            return [], 0
+        max_count = max(gene_counts.values())
+        top_genes = sorted([g for g, c in gene_counts.items() if c == max_count])
+        return top_genes, max_count
         
     def run_gsea(self, expfile, sampfile, keggfile, threshold):
         """
@@ -213,22 +279,45 @@ class GSEA:
         self.load_data(expfile, sampfile, keggfile)
         all_gene_sets = list(self.kegg_sets.keys())
 
+        # plot the histogram of gene occurrences across KEGG sets
+        self.plot_kegg_gene_occurrence_histogram(out_file="kegg_gene_occurrences_hist.png", show=False)
+
+        # print the gene(s) that appear most often across KEGG sets
+        top_genes, max_count = self.most_frequent_kegg_genes()
+        print(f"Most frequent KEGG gene occurrences: {max_count}")
+        print(f"Gene(s): {', '.join(top_genes)}")
+
         # get BMP4 logFC for the quiz 
         bmp4_logfc = self.get_fc_for_gene('BMP4')
         print(f"BMP4 logFC: {bmp4_logfc}")
 
+        # get the number of unique genes across all KEGG sets
+        num_unique_genes = self.count_unique_kegg_genes()
+        print(f"Number of unique genes across all KEGG sets: {num_unique_genes}")
+
+        max_enrichment_score = 0
+        max_enrichment_score_gene_set = None
         # loop through all gene sets and calculate the enrichment score and background distribution
         for gene_set in tqdm(all_gene_sets, desc="Running GSEA for all gene sets", total=len(all_gene_sets)):
             self.enrichment_scores[gene_set] = {}
             enrichment_score = self.get_enrichment_score(gene_set)
+            print(f"Enrichment score for {gene_set}: {enrichment_score}")
+            if enrichment_score > max_enrichment_score:
+                max_enrichment_score = enrichment_score
+                max_enrichment_score_gene_set = gene_set
             self.enrichment_scores[gene_set]['enrichment_score'] = enrichment_score
             scores = self.background_distribution(gene_set)
             self.enrichment_scores[gene_set]['scores'] = scores
         
         # get the significant gene sets at a corrected threshold of threshodl
-        return self.get_sig_sets(threshold)
+        significant_sets = self.get_sig_sets(threshold)
+        print(f"Max enrichment score: {max_enrichment_score} for gene set: {max_enrichment_score_gene_set}")
+        return significant_sets
+
 
 def main():
+
+
     """
     Main method to run the GSEA analysis.
     Loads in the expression, sample and gene set data from the command line arguments.
@@ -246,12 +335,15 @@ def main():
     keggfile = sys.argv[3]
 
     # set inclusion threshold for significant gene sets
-    threshold = 0.5
+    threshold = 0.2
+
+    
 
     # run GSEA methd
     gsea = GSEA()
     significant_sets = gsea.run_gsea(expfile, sampfile, keggfile, threshold)
     print(significant_sets, sep='\t')
+    print(f"Number of significant gene sets: {len(significant_sets)}")
 
 
 if __name__ == "__main__":
