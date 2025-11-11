@@ -738,4 +738,5 @@ def main(argv):
         output_writer.outputScoresForProteinFile(protein_filename)
 
 if __name__ == '__main__':
+    print("Starting feature.py")
     main(sys.argv)
