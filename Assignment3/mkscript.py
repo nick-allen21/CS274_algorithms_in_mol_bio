@@ -3,11 +3,11 @@ from pymol import cmd
 
 ########### EDIT ONLY THESE LINES, USE FULL PATHS ############
 #Your ESMfold protein
-pdb_file1 = 'esmfold.pdb'
-text_file1 = 'esmfold_100.txt'
+pdb_file1 = './pdb/mystery_protein.pdb'
+text_file1 = './myst_prot/mystery_protein_100.txt'
 #Your protein from RCSB
-pdb_file2 = 'XXXX.pdb'
-text_file2 = 'XXXX_100.txt'
+pdb_file2 = '/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Assignment3/pdb/Calmodulin.pdb'
+text_file2 = '/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Assignment3/calmodulin/Calmodulin_100.txt'
 ##############################################################
 
 # Load the PDB files
