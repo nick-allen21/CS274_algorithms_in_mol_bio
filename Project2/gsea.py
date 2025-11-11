@@ -284,12 +284,17 @@ class GSEA:
 
         # print the gene(s) that appear most often across KEGG sets
         top_genes, max_count = self.most_frequent_kegg_genes()
-        print(f"Most frequent KEGG gene occurrences: {max_count}")
-        print(f"Gene(s): {', '.join(top_genes)}")
+        # print(f"Most frequent KEGG gene occurrences: {max_count}")
+        # print(f"Gene(s): {', '.join(top_genes)}")
 
         # get BMP4 logFC for the quiz 
         bmp4_logfc = self.get_fc_for_gene('BMP4')
         print(f"BMP4 logFC: {bmp4_logfc}")
+
+        # get BMP4 logFC for the quiz 
+        wnt4_logfc = self.get_fc_for_gene('WNT4')
+        print(f"WNT4 logFC: {wnt4_logfc}")
+
 
         # get the number of unique genes across all KEGG sets
         num_unique_genes = self.count_unique_kegg_genes()
