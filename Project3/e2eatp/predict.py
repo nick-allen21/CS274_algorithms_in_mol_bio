@@ -10,6 +10,7 @@ from torch import nn
 
 import esm
 
+# python predict.py -outfolder ../predict_results -seq_fa <fasta_file> --embeddings ../outputs/embeddings.pkl
 
 def exists(fileOrFolderPath):
     return os.path.exists(fileOrFolderPath)
