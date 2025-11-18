@@ -176,7 +176,7 @@ if __name__ == "__main__":
     binding_sites_file = os.path.join(base_dir, "binding_sites.csv")
 
     analyzer = AnalyzePredictions()
-    cutoff = 0.5
+    cutoff = 0.9
     print(f"[AnalyzePredictions] Using predicted results from: {predicted_results_dir}")
     print(f"[AnalyzePredictions] Outputs directory: {outputs_dir}")
 
