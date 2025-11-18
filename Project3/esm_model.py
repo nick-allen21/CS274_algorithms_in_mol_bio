@@ -8,15 +8,15 @@ import os
 import pickle
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
-from sklearn.metrics import silhouette_samples
-from tqdm import tqdm
+from sklearn.metrics import silhouette_samples, silhouette_score
+from sklearn.preprocessing import normalize
 
 class ESM_model:
     def __init__(self, fasta_file, output_dir, pro_fam_datafile):
         self.fasta_file = fasta_file
         self.output_dir = output_dir
         self.prot_fam_datafile = pro_fam_datafile
-        self.prot_fam_data = pd.read_csv(pro_fam_datafile, sep="\t")
+        self.prot_fam_data = pd.read_csv(pro_fam_datafile)
         self.mean_pooled = None
         self.max_pooled = None
 
@@ -29,7 +29,7 @@ class ESM_model:
         """
         print(f"[ESM_model] Loading FASTA: {fasta_file}")
         id_seq_list = []
-        for record in tqdm(SeqIO.parse(fasta_file, "fasta"), desc="Reading FASTA records"):
+        for record in SeqIO.parse(fasta_file, "fasta"):
             header = record.description if record.description else record.id
             if "|" in header:
                 parts = header.split("|")
@@ -58,7 +58,7 @@ class ESM_model:
         embeddings_dict = {}
 
         print(f"[ESM_model] Generating per-residue embeddings for {len(list_tuples_protId_seq)} proteins...")
-        for prot_id, seq in tqdm(list_tuples_protId_seq, desc="Embedding proteins"):
+        for prot_id, seq in list_tuples_protId_seq:
             data = [(prot_id, seq)]
             _, _, batch_tokens = batch_converter(data)
             with torch.no_grad():
@@ -89,7 +89,7 @@ class ESM_model:
 
         pooled = {}
         print(f"[ESM_model] Pooling embeddings with mode='{mode}' for {len(dict_protId_embedding)} proteins...")
-        for prot_id, per_residue in tqdm(dict_protId_embedding.items(), desc=f"Pooling ({mode})"):
+        for prot_id, per_residue in dict_protId_embedding.items():
             if per_residue is None:
                 continue
             arr = np.asarray(per_residue)
@@ -120,7 +120,7 @@ class ESM_model:
         def _stack_vectors(emb_dict, desc):
             ids = []
             vectors = []
-            for prot_id, vec in tqdm(emb_dict.items(), desc=desc):
+            for prot_id, vec in emb_dict.items():
                 arr = np.asarray(vec)
                 if arr.ndim == 2 and arr.shape[0] == 1:
                     arr = arr[0]
@@ -169,48 +169,37 @@ class ESM_model:
         """
         print(f"[ESM_model] Loading family metadata from: {family_data_file}")
         fam_df = pd.read_csv(family_data_file)
-        
-        # Handle duplicates by keeping the first occurrence
-        before = len(fam_df)
-        fam_df = fam_df.drop_duplicates(subset=["protid"], keep="first").reset_index(drop=True)
-        dropped = before - len(fam_df)
-        if dropped > 0:
-            print(f"[ESM_model] Warning: {dropped} duplicate protid rows dropped from family metadata.")
+        # Build mapping protid -> set of families (allow multi-family membership)
+        prot_to_fams = (
+            fam_df.groupby("protid")["family"]
+            .apply(lambda s: set(s.astype(str).tolist()))
+            .to_dict()
+        )
 
-        fam_map = dict(zip(fam_df["protid"], fam_df["family"]))
+        # Build protein list from family file order; assume it is a subset of pooled vectors
+        prot_ids = [pid for pid in fam_df["protid"].tolist() if pid in pooled_vectors_dict]
+        print(f"[ESM_model] Computing silhouettes for {len(prot_ids)} proteins (from family file).")
 
-        # Intersect proteins present in pooled vectors and family file
-        common_ids = [pid for pid in pooled_vectors_dict.keys() if pid in fam_map]
-        print(f"[ESM_model] Computing silhouettes for {len(common_ids)} proteins (intersection).")
-        if len(common_ids) < 2:
-            print("[ESM_model] Not enough proteins to compute silhouette. Returning empty dataframe.")
-            return pd.DataFrame(columns=["family", "silhouette_score"])
-
-        # Stack vectors and build labels
+        # Stack vectors in a fixed order
         X_list = []
-        y_list = []
-        for pid in tqdm(common_ids, desc="Stacking vectors for silhouette"):
+        for pid in prot_ids:
             vec = pooled_vectors_dict[pid]
             arr = np.asarray(vec)
             if arr.ndim == 2 and arr.shape[0] == 1:
                 arr = arr[0]
-            elif arr.ndim != 1:
-                raise ValueError(f"Vector for {pid} must be shape (1,1280) or (1280,), got {arr.shape}")
             X_list.append(arr)
-            y_list.append(fam_map[pid])
-
-        # Need at least 2 unique labels
-        if len(set(y_list)) < 2:
-            print("[ESM_model] Only one family present after intersection; silhouette undefined. Returning empty dataframe.")
-            return pd.DataFrame(columns=["family", "silhouette_score"])
-
         X = np.vstack(X_list)
-        s_samples = silhouette_samples(X, y_list)
-        per_sample_df = pd.DataFrame({"protid": common_ids, "family": y_list, "silhouette": s_samples})
-        by_family = per_sample_df.groupby("family", as_index=False)["silhouette"].mean()
-        by_family = by_family.rename(columns={"silhouette": "silhouette_score"})
-        print(f"[ESM_model] Computed silhouette scores for {len(by_family)} families.")
-        return by_family
+
+        # Collect full family set
+        families = sorted(set().union(*[prot_to_fams[pid] for pid in prot_ids]))
+        rows = []
+        for fam in families:
+            labels = np.array([1 if fam in prot_to_fams[pid] else 0 for pid in prot_ids], dtype=int)
+            score = silhouette_score(X, labels)
+            rows.append({"family": fam, "silhouette_score": score})
+
+        result = pd.DataFrame(rows)
+        return result
 
     def create_family_t_SNE(self, family_data_file, mean_pooled, max_pooled):
         """
@@ -226,7 +215,7 @@ class ESM_model:
             ids = []
             X_list = []
             y_list = []
-            for pid, vec in tqdm(pooled_dict.items(), desc=desc):
+            for pid, vec in pooled_dict.items():
                 if pid not in fam_map:
                     continue
                 arr = np.asarray(vec)
@@ -308,6 +297,8 @@ if __name__ == "__main__":
     # Print the mean and max silhouette scores for each family
     print(f"Mean Pooled Silhouette Scores: {mean_silhouette}")
     print(f"Max Pooled Silhouette Scores: {max_silhouette}")
+
+    print(f"highest mean silhouette score: {mean_silhouette['silhouette_score'].max()} from family: {mean_silhouette['family'][mean_silhouette['silhouette_score'].argmax()]}")
 
     # create family t SNE plots for both mean and max pooling   
     ESMmodel.create_family_t_SNE(prot_fam_datafile, mean_pooled, max_pooled)

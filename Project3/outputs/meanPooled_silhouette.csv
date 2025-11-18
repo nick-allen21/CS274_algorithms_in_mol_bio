@@ -1,7 +1,7 @@
 family,silhouette_score
-agc_kinase,-0.22360086
-cmgc_kinase,0.23043036
-other,-0.096492775
-receptor_tyrosine_kinase,0.01573292
-ste_ser_thr_kinase,-0.14638484
-tyrosine_kinase,0.044171702
+agc_kinase,0.06478963
+cmgc_kinase,0.070943765
+other,0.04292399
+receptor_tyrosine_kinase,-0.0143418275
+ste_ser_thr_kinase,-0.03671825
+tyrosine_kinase,-0.0044133253

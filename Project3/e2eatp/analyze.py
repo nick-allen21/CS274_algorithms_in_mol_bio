@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,7 +17,7 @@ class AnalyzePredictions:
         print(f"Loading data from {predicted_results_dir} with cutoff {cutoff}")
         records = []
         files = [f for f in os.listdir(predicted_results_dir) if f.lower().endswith(".tsv")]
-        for fname in tqdm(files, desc="Reading prediction TSVs"):
+        for fname in files:
             protid = os.path.splitext(fname)[0]
             fpath = os.path.join(predicted_results_dir, fname)
            
@@ -37,14 +36,6 @@ class AnalyzePredictions:
   
         print(f"Loading binding site labels from {protein_bindingSite_file}")
         df = pd.read_csv(protein_bindingSite_file)
-        # Normalize expected columns
-        expected_cols = {"protid", "binding_site"}
-        # Keep required columns and coerce types
-        if not expected_cols.issubset(df.columns):
-            raise ValueError("Binding site file must have columns 'protid' and 'binding_site'.")
-        df = df[["protid", "binding_site"]].copy()
-        df["binding_site"] = pd.to_numeric(df["binding_site"], errors="coerce").astype("Int64")
-        df = df.dropna(subset=["protid", "binding_site"]).reset_index(drop=True)
         return df
 
     def calculate_metrics(self, predicted_results_dir, cutoff, bindingSite_dataframe):
@@ -69,8 +60,6 @@ class AnalyzePredictions:
         pred_proteins = set(preds_df["protid"].unique().tolist())
         known_proteins = set(known_df["protid"].unique().tolist())
         use_proteins = pred_proteins.intersection(known_proteins)
-        if not use_proteins:
-            return 0.0, 0.0, 0.0, 0.0
 
         preds_df = preds_df[preds_df["protid"].isin(use_proteins)].copy()
         known_df = known_df[known_df["protid"].isin(use_proteins)].copy()
@@ -80,10 +69,9 @@ class AnalyzePredictions:
         for pid, g in known_df.groupby("protid"):
             known_map[pid] = set(g["binding_site"].astype(int).tolist())
 
-        # Sequence length map if available; else will infer later
-        seq_len_map = {}
-        if "seq_length" in known_df.columns:
-            seq_len_map = {pid: int(g["seq_length"].iloc[0]) for pid, g in known_df.groupby("protid")}
+       
+        # sequence length map for quick lookup
+        seq_len_map = {pid: int(g["seq_length"].iloc[0]) for pid, g in known_df.groupby("protid")}
 
         # Accumulate confusions globally across proteins
         TP = 0
@@ -94,16 +82,9 @@ class AnalyzePredictions:
         for pid, g in preds_df.groupby("protid"):
             pred_pos = set(pd.to_numeric(g["Index"], errors="coerce").dropna().astype(int).tolist())
             true_pos = known_map.get(pid, set())
-            # Infer sequence length if not provided
-            if pid in seq_len_map:
-                L = seq_len_map[pid]
-            else:
-                max_idx = -1
-                if pred_pos:
-                    max_idx = max(max_idx, max(pred_pos))
-                if true_pos:
-                    max_idx = max(max_idx, max(true_pos))
-                L = max_idx + 1 if max_idx >= 0 else 0
+            # sequence length
+            L = seq_len_map[pid]
+            
             # Confusion counts
             tp = len(pred_pos & true_pos)
             fp = len(pred_pos - true_pos)
@@ -115,10 +96,10 @@ class AnalyzePredictions:
             TN += tn
 
         denom_acc = TP + TN + FP + FN
-        accuracy = (TP + TN) / denom_acc if denom_acc > 0 else 0.0
-        precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
-        tpr = TP / (TP + FN) if (TP + FN) > 0 else 0.0
-        fpr = FP / (FP + TN) if (FP + TN) > 0 else 0.0
+        accuracy = (TP + TN) / denom_acc 
+        precision = TP / (TP + FP)
+        tpr = TP / (TP + FN) 
+        fpr = FP / (FP + TN) 
         return accuracy, precision, tpr, fpr
 
     def plot_histogram(self, predicted_results_dir, cutoff):
@@ -131,8 +112,7 @@ class AnalyzePredictions:
             return
         counts = df["AA"].value_counts().sort_index()
         
-        outputs_dir = "outputs"
-        os.makedirs(outputs_dir, exist_ok=True)
+        outputs_dir = "/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project3/outputs"
         plt.figure(figsize=(8, 4))
         counts.plot(kind="bar", color="#4C72B0")
         plt.xlabel("Amino Acid")
@@ -153,11 +133,9 @@ class AnalyzePredictions:
             acc, prec, tpr, fpr = self.calculate_metrics(predicted_results_dir, thr, bindingSite_dataframe)
             fprs.append(fpr)
             tprs.append(tpr)
+
         # Determine outputs directory
-        parent = os.path.dirname(predicted_results_dir.rstrip("/"))
-        root = os.path.dirname(parent)
-        outputs_dir = os.path.join(root, "outputs")
-        os.makedirs(outputs_dir, exist_ok=True)
+        outputs_dir = "/Users/nickallen/Documents/GitHub/-CS274-Algorithms-in-Molecular-Biology/Project3/outputs"
         plt.figure(figsize=(5, 5))
         plt.plot(fprs, tprs, marker="o", label="ROC")
         plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random")

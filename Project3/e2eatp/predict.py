@@ -201,6 +201,7 @@ if __name__ == '__main__':
         parser.print_help()
         exit("PLEASE INPUT YOUR PARAMETERS CORRECTLY")
 
+    print("[predict] Starting E2EATP prediction script")
     print_namespace(args)
     set_seed(2023)
     seq_fa = args.seq_fa
@@ -208,6 +209,7 @@ if __name__ == '__main__':
     e2eatpm = "{}/e2eatpm/e2eatpm.pkl".format(os.path.abspath('.'))
 
     device = args.device if torch.cuda.is_available() else 'cpu'
+    print(f"[predict] Torch CUDA available: {torch.cuda.is_available()} | Using device: {device}")
 
     core_model = load_model()
     if os.path.exists(e2eatpm):
@@ -217,14 +219,23 @@ if __name__ == '__main__':
             if key.startswith('body2') or key.startswith('body3') or key.startswith('weights'):
                 del state_dict[key]
         core_model.load_state_dict(state_dict)
+        print(f"[predict] Loaded model checkpoint from {e2eatpm}")
+    else:
+        print(f"[predict] Warning: checkpoint not found at {e2eatpm}; using randomly initialized model")
 
     model = JModel(core_model).to(device)
     model.eval()
 
     seq_dict = loadFasta(seq_fa)
+    print(f"[predict] Loaded FASTA with {len(seq_dict)} sequences from {seq_fa}")
 
     # Load precomputed embeddings
     precomputed_embeddings = load_precomputed_embeddings(args.embeddings_file)
+    try:
+        num_emb = len(precomputed_embeddings)
+    except Exception:
+        num_emb = "unknown"
+    print(f"[predict] Loaded precomputed embeddings from {args.embeddings_file} (count: {num_emb})")
 
     '''start_index = args.start_index
     end_index = args.end_index
@@ -245,14 +256,15 @@ if __name__ == '__main__':
         if key in precomputed_embeddings:
             emb = precomputed_embeddings[key]
 
-            #emb_tensor = torch.tensor(emb).unsqueeze(0).to(device)  # Add batch dimension and move to device
-            out = model(emb)
+            emb_tensor = torch.from_numpy(emb).float().unsqueeze(0)  # (1, L, 1280)
+            out = model(emb_tensor)
         else:
             print(f"Embedding for {key} not found.")
             continue
 
         probs = parsePredProbs(out)
         filepath = "{}/{}.tsv".format(outfolder, key)
+        print(f"[predict] Writing predictions to {filepath}")
         with open(filepath, 'w') as file_object:
             length = len(probs)
             file_object.write("Index\tAA\tProb\n")
@@ -260,4 +272,7 @@ if __name__ == '__main__':
                 aa = seq[i]
                 prob = probs[i]
                 file_object.write("{:5d}\t{}\t{:.3f}\n".format(i, aa, probs[i]))
+        print(f"[predict] Saved {filepath} ({length} residues)")
+
+    print("[predict] Finished generating prediction TSV files.")
                 
