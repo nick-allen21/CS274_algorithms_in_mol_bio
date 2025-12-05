@@ -13,6 +13,7 @@ import sys
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+from chemoUtils import load_data
 
 class Tanimoto:
     """
@@ -35,44 +36,9 @@ class Tanimoto:
         self.drugs_data_path = drugs_data_path
         self.targets_data_path = targets_data_path
         self.output_path = output_path
+        self.drugs_df, self.targets_df, self.drug_mapping_dict, self.fingerprint_dict = load_data(drugs_data_path, targets_data_path)
 
-    def load_data(self):
-        """
-        Load drug and target data from CSV files and create lookup dictionaries.
-        
-        Creates two dictionaries:
-        1. drug_mapping_dict: maps each drug to its set of protein targets
-        2. fingerprint_dict: maps each drug to its molecular fingerprint set
-        
-        Inputs:
-            None (uses paths stored in instance variables)
-        
-        Returns:
-            None (stores data in instance variables)
-        """
-        # Load CSV files into pandas DataFrames
-        self.drugs_df = pd.read_csv(self.drugs_data_path)
-        self.targets_df = pd.read_csv(self.targets_data_path)
-        
-        # Create dictionary mapping each drug to set of protein targets it binds
-        # Key: db_id (drug), Value: set of uniprot_accession (proteins)
-        self.drug_mapping_dict = {}
-        for _, row in self.targets_df.iterrows():
-            drug_id = row['db_id']
-            protein = row['uniprot_accession']
-            
-            if drug_id not in self.drug_mapping_dict:
-                self.drug_mapping_dict[drug_id] = set()
-            self.drug_mapping_dict[drug_id].add(protein)
-        
-        # Create dictionary mapping each drug to its fingerprint set
-        # Key: db_id (drug), Value: set of fingerprint features (integers)
-        self.fingerprint_dict = {}
-        for _, row in self.drugs_df.iterrows():
-            drug_id = row['db_id']
-            # Parse space-separated fingerprint string into set of integers
-            fingerprint = set(map(int, row['maccs'].split()))
-            self.fingerprint_dict[drug_id] = fingerprint
+    
 
     def shared_targets(self, drug_a, drug_b):
         """
