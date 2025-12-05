@@ -12,6 +12,7 @@ Course: CS274 - Algorithms in Molecular Biology
 import sys
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 
 class Tanimoto:
     """
@@ -184,20 +185,112 @@ class Tanimoto:
         # Write to CSV without header row or index column
         self.tanimoto_output_df.to_csv(self.output_path, index=False, header=False)
 
-    def run_tanimoto(self):
+    def create_histogram(self, tanimoto_values, title, filename, output_dir='results'):
+        """
+        Create and save a histogram of Tanimoto coefficient values.
+        
+        Inputs:
+            tanimoto_values: list or array of float, Tanimoto coefficient values to plot
+            title: string, title for the histogram figure
+            filename: string, filename to save the histogram (e.g., 'all_tanimoto.png')
+            output_dir: string, directory where histogram will be saved (default: 'results')
+        
+        Returns:
+            None (saves histogram to disk)
+        """
+        # Create new figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create histogram with appropriate bins
+        # Using 50 bins for good resolution across 0-1 range
+        plt.hist(tanimoto_values, bins=50, edgecolor='black', alpha=0.7)
+        
+        # Set labels and title
+        plt.xlabel('Tanimoto Coefficient', fontsize=12)
+        plt.ylabel('Frequency', fontsize=12)
+        plt.title(title, fontsize=14)
+        
+        # Add grid for better readability
+        plt.grid(axis='y', alpha=0.3)
+        
+        # Ensure output directory exists
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        # Save figure
+        output_path = os.path.join(output_dir, filename)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"Saved histogram: {output_path}")
+
+    def generate_all_histograms(self, sunet_id):
+        """
+        Generate all three required histograms for Tanimoto analysis.
+        
+        Creates:
+        1. Histogram of all Tanimoto values
+        2. Histogram of Tanimotos for drug pairs that share targets
+        3. Histogram of Tanimotos for drug pairs that don't share targets
+        
+        Inputs:
+            sunet_id: string, SUNet ID for labeling histograms
+        
+        Returns:
+            None (saves three histogram files to disk)
+        """
+        # Convert Tanimoto scores from string to float for plotting
+        self.tanimoto_output_df['tanimoto_float'] = self.tanimoto_output_df['tanimoto'].astype(float)
+        
+        # Get output directory from the output_path
+        output_dir = os.path.dirname(self.output_path) if os.path.dirname(self.output_path) else 'results'
+        
+        # 1. All Tanimoto values
+        all_values = self.tanimoto_output_df['tanimoto_float']
+        self.create_histogram(
+            all_values,
+            f"{sunet_id} All",
+            'all_tanimoto.png',
+            output_dir
+        )
+        
+        # 2. Tanimotos for drug pairs that share a target (shared_target == 1)
+        shared_values = self.tanimoto_output_df[
+            self.tanimoto_output_df['shared_target'] == 1
+        ]['tanimoto_float']
+        self.create_histogram(
+            shared_values,
+            f"{sunet_id} Shared",
+            'shared_tanimoto.png',
+            output_dir
+        )
+        
+        # 3. Tanimotos for drug pairs that don't share a target (shared_target == 0)
+        not_shared_values = self.tanimoto_output_df[
+            self.tanimoto_output_df['shared_target'] == 0
+        ]['tanimoto_float']
+        self.create_histogram(
+            not_shared_values,
+            f"{sunet_id} Not Shared",
+            'notshared_tanimoto.png',
+            output_dir
+        )
+
+    def run_tanimoto(self, sunet_id='nallen21'):
         """
         Execute the complete Tanimoto analysis pipeline.
         
-        Performs three steps:
+        Performs five steps:
         1. Load drug and target data
         2. Calculate all pairwise Tanimoto coefficients
         3. Write results to output file
+        4. Generate histograms of Tanimoto distributions
         
         Inputs:
-            None (uses data stored in instance variables)
+            sunet_id: string, SUNet ID for labeling histograms (default: 'nallen21')
         
         Returns:
-            None (writes output file and prints progress messages)
+            None (writes output file, generates histograms, and prints progress messages)
         """
         print("Running Tanimoto...")
         print("Loading data...")
@@ -206,25 +299,31 @@ class Tanimoto:
         self.calculate_tanimoto()
         print("Writing output...")
         self.write_output()
+        print("Generating histograms...")
+        self.generate_all_histograms(sunet_id)
 
 if __name__ == "__main__":
     """
     Main execution block for command-line usage.
     
-    Usage: python tanimoto.py <drugs.csv> <targets.csv> <output.csv>
+    Usage: python tanimoto.py <drugs.csv> <targets.csv> <output.csv> 
     """
     print("starting tanimoto.py")
     
-    # Check for correct number of command-line arguments
-    if len(sys.argv) != 4:
-        print("Usage: python tanimoto.py <drugs_data_path> <targets_data_path> <output_path>")
+    # Check for correct number of command-line arguments (3 required, 1 optional)
+    if len(sys.argv) < 4 or len(sys.argv) > 5:
+        print("Usage: python tanimoto.py <drugs_data_path> <targets_data_path> <output_path> ")
         sys.exit(1)
     
     # Parse command-line arguments
     drugs_data_path = sys.argv[1]
     targets_data_path = sys.argv[2]
     output_path = sys.argv[3]
-
+    
+    if len(sys.argv) != 4:
+        print("Usage: python tanimoto.py <drugs_data_path> <targets_data_path> <output_path> ")
+        sys.exit(1)
+        
     # Create Tanimoto object and run analysis
     tanimoto = Tanimoto(drugs_data_path, targets_data_path, output_path)
     tanimoto.run_tanimoto()
