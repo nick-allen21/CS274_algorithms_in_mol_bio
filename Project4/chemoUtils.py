@@ -42,30 +42,30 @@ def load_data(drugs_data_path, targets_data_path):
         return drugs_df, targets_df, drug_mapping_dict, fingerprint_dict
 
 
- def tanimoto_coeff(self, drug_a, drug_b):
-        """
-        Calculate Tanimoto coefficient between two drugs based on fingerprints.
-        
-        The Tanimoto coefficient (Jaccard Index) measures chemical similarity:
-        Tc = |fpt(A) ∩ fpt(B)| / |fpt(A) ∪ fpt(B)|
-        
-        Where fpt(A) and fpt(B) are the fingerprint feature sets.
-        
-        Inputs:
-            drug_a: string, db_id of first drug
-            drug_b: string, db_id of second drug
-        
-        Returns:
-            float, Tanimoto coefficient between 0.0 (no similarity) and 1.0 (identical)
-        """
-        # Get fingerprint sets for both drugs
-        fpt_a = self.fingerprint_dict[drug_a]
-        fpt_b = self.fingerprint_dict[drug_b]
-        
-        # Calculate size of intersection (common features)
-        intersection = len(fpt_a & fpt_b)
-        # Calculate size of union (all unique features)
-        union = len(fpt_a | fpt_b)
-        
-        # Return ratio, handling edge case of empty union
-        return intersection / union if union > 0 else 0.0
+def tanimoto_coeff(drug_a, drug_b, fingerprint_dict):
+    """
+    Calculate Tanimoto coefficient between two drugs based on fingerprints.
+    
+    The Tanimoto coefficient (Jaccard Index) measures chemical similarity:
+    Tc = |fpt(A) ∩ fpt(B)| / |fpt(A) ∪ fpt(B)|
+    
+    Where fpt(A) and fpt(B) are the fingerprint feature sets.
+    
+    Inputs:
+        drug_a: string, db_id of first drug
+        drug_b: string, db_id of second drug
+    
+    Returns:
+        float, Tanimoto coefficient between 0.0 (no similarity) and 1.0 (identical)
+    """
+    # Get fingerprint sets for both drugs
+    fpt_a = fingerprint_dict[drug_a]
+    fpt_b = fingerprint_dict[drug_b]
+    
+    # Calculate size of intersection (common features)
+    intersection = len(fpt_a & fpt_b)
+    # Calculate size of union (all unique features)
+    union = len(fpt_a | fpt_b)
+    
+    # Return ratio, handling edge case of empty union
+    return intersection / union if union > 0 else 0.0

@@ -13,7 +13,7 @@ import sys
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-from chemoUtils import load_data
+from chemoUtils import load_data, tanimoto_coeff
 
 class Tanimoto:
     """
@@ -54,33 +54,6 @@ class Tanimoto:
         # Use set intersection to find common targets
         return 1 if self.drug_mapping_dict[drug_a] & self.drug_mapping_dict[drug_b] else 0
 
-    def tanimoto_coeff(self, drug_a, drug_b):
-        """
-        Calculate Tanimoto coefficient between two drugs based on fingerprints.
-        
-        The Tanimoto coefficient (Jaccard Index) measures chemical similarity:
-        Tc = |fpt(A) ∩ fpt(B)| / |fpt(A) ∪ fpt(B)|
-        
-        Where fpt(A) and fpt(B) are the fingerprint feature sets.
-        
-        Inputs:
-            drug_a: string, db_id of first drug
-            drug_b: string, db_id of second drug
-        
-        Returns:
-            float, Tanimoto coefficient between 0.0 (no similarity) and 1.0 (identical)
-        """
-        # Get fingerprint sets for both drugs
-        fpt_a = self.fingerprint_dict[drug_a]
-        fpt_b = self.fingerprint_dict[drug_b]
-        
-        # Calculate size of intersection (common features)
-        intersection = len(fpt_a & fpt_b)
-        # Calculate size of union (all unique features)
-        union = len(fpt_a | fpt_b)
-        
-        # Return ratio, handling edge case of empty union
-        return intersection / union if union > 0 else 0.0
 
     def calculate_tanimoto(self):
         """
@@ -110,7 +83,7 @@ class Tanimoto:
                 drug_b = drug_ids[j]
                 
                 # Calculate Tanimoto coefficient for chemical similarity
-                tc_score = self.tanimoto_coeff(drug_a, drug_b)
+                tc_score = tanimoto_coeff(drug_a, drug_b, self.fingerprint_dict)
                 
                 # Check if they share protein targets
                 # Handle case where drug may not have any known targets
