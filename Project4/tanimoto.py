@@ -232,8 +232,6 @@ class Tanimoto:
             None (writes output file, generates histograms, and prints progress messages)
         """
         print("Running Tanimoto...")
-        print("Loading data...")
-        self.load_data()
         print("Calculating Tanimoto coefficients...")
         self.calculate_tanimoto()
         print("Writing output...")

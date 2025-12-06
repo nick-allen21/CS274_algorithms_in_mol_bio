@@ -20,7 +20,7 @@ class PValue:
     Class to calculate bootstrap p-values for protein ligand set comparisons.
     """
     
-    def __init__(self, drugs_csv, targets_csv, protein_a, protein_b):
+    def __init__(self, drugs_csv, targets_csv):
         """
         Initialize PValue calculator with data files and protein IDs.
         
@@ -35,15 +35,15 @@ class PValue:
         """
         self.drugs_csv = drugs_csv
         self.targets_csv = targets_csv
-        self.protein_a = protein_a
-        self.protein_b = protein_b
-        
+        self.protein_a = None
+        self.protein_b = None
         # Load data and create lookup dictionaries
         self.drugs_df, self.targets_df, self.drug_mapping_dict, self.fingerprint_dict = load_data(drugs_csv, targets_csv)
         
+    def get_ligand_sets(self):
         # Get ligand sets for each protein (drugs that bind to each protein)
-        self.ligand_set_a = {key for key, value in self.drug_mapping_dict.items() if protein_a in value}
-        self.ligand_set_b = {key for key, value in self.drug_mapping_dict.items() if protein_b in value}
+        self.ligand_set_a = {key for key, value in self.drug_mapping_dict.items() if self.protein_a in value}
+        self.ligand_set_b = {key for key, value in self.drug_mapping_dict.items() if self.protein_b in value}
         
         # Store sizes for bootstrap sampling
         self.size_a = len(self.ligand_set_a)
@@ -74,7 +74,7 @@ class PValue:
                     tsummary += tc
         return tsummary
 
-    def run_pvalue(self, n_iterations):
+    def run_pvalue(self, n_iterations, random_seed, protein_a, protein_b):
         """
         Calculate bootstrap p-value for protein ligand set similarity.
         
@@ -91,10 +91,19 @@ class PValue:
         
         Inputs:
             n_iterations: int, number of bootstrap sampling iterations
-        
+            random_seed: int, random seed for reproducibility
         Returns:
             None (stores p-value in self.p_value)
         """
+        # Set random seed for reproducibility
+        random.seed(random_seed)
+
+        # get ligand sets for the proteins
+        self.protein_a = protein_a
+        self.protein_b = protein_b
+        # get ligand sets for the proteins
+        self.get_ligand_sets()
+
         # Calculate Tsummary for actual protein ligand sets
         tsummary = self.calculate_tsummary(self.ligand_set_a, self.ligand_set_b, self.fingerprint_dict)
         
@@ -149,13 +158,10 @@ def parse_arguments():
 if __name__ == "__main__":
     # Parse command-line arguments
     args = parse_arguments()
-    
-    # Set random seed for reproducibility
-    random.seed(args.r)
 
     # Create PValue calculator and run bootstrap analysis
-    pvalue_calc = PValue(args.drugs_csv, args.targets_csv, args.protein_a, args.protein_b)
-    pvalue_calc.run_pvalue(args.n)
+    pvalue_calc = PValue(args.drugs_csv, args.targets_csv)
+    pvalue_calc.run_pvalue(args.n, args.r, args.protein_a, args.protein_b)
     
     # Print ONLY the p-value (for autograder compatibility)
     print(pvalue_calc.p_value)
