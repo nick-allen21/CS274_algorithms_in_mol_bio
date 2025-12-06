@@ -103,6 +103,7 @@ class NetworkGen:
         print(f"Output: {output_file}")
 
 if __name__ == "__main__":
+    
     # Parse command-line arguments
     drugs_csv = sys.argv[1]
     targets_csv = sys.argv[2]

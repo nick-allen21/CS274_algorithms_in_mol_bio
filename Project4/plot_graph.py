@@ -96,10 +96,9 @@ def create_network_graph(edgelist_file, label_mapping, color_mapping, output_fil
     plt.legend(handles=legend_elements, loc='upper right', fontsize=8)
     
     plt.axis('off')
-    plt.tight_layout()
     
-    # Save figure with specified DPI (150)
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    # Save with exact specifications: 8x8 inches at 150 DPI
+    plt.savefig(output_file, dpi=150)
     plt.close()
     
     print(f"Network visualization saved to: {output_file}")
@@ -124,5 +123,3 @@ if __name__ == "__main__":
     # Create and save network visualization
     print("Creating network visualization...")
     create_network_graph(edgelist_file, label_mapping, color_mapping, output_file)
-    
-    print("Done!")

@@ -38,7 +38,6 @@ class Tanimoto:
         self.output_path = output_path
         self.drugs_df, self.targets_df, self.drug_mapping_dict, self.fingerprint_dict = load_data(drugs_data_path, targets_data_path)
 
-    
 
     def shared_targets(self, drug_a, drug_b):
         """
@@ -64,7 +63,7 @@ class Tanimoto:
         2. Whether they share any protein targets
         
         Inputs:
-            None (uses data loaded in instance variables)
+            None - uses self stored vars
         
         Returns:
             None (stores results in self.tanimoto_output_df)

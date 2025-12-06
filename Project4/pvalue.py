@@ -84,7 +84,7 @@ class PValue:
         Algorithm:
         1. Calculate Tsummary for actual protein pair
         2. For each bootstrap iteration:
-           - Sample random ligand sets of same sizes (with replacement)
+           - Sample random ligand sets of same sizes
            - Calculate Ti_summary for random sets
            - Count if Ti_summary >= Tsummary
         3. p-value = count / n_iterations
@@ -135,7 +135,7 @@ def parse_arguments():
     Parse command-line arguments for pvalue calculation.
     
     Inputs:
-        None (reads from sys.argv)
+        None 
     
     Returns:
         argparse.Namespace containing parsed arguments:
@@ -163,6 +163,6 @@ if __name__ == "__main__":
     pvalue_calc = PValue(args.drugs_csv, args.targets_csv)
     pvalue_calc.run_pvalue(args.n, args.r, args.protein_a, args.protein_b)
     
-    # Print ONLY the p-value (for autograder compatibility)
+    # Print the p-value
     print(pvalue_calc.p_value)
 
