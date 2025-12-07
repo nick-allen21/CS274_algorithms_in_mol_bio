@@ -51,7 +51,7 @@ class NetworkGen:
             n_iterations: int, number of bootstrap iterations (default 500)
             random_seed: int, random seed for reproducibility (default 214)
             p_threshold: float, p-value threshold for significance (default 0.05)
-            output_file: string, output filename for edgelist (default 'network_edgelist.txt')
+            output_file: string, output filename for edgelist 
         
         Returns:
             None (writes edgelist file to disk)

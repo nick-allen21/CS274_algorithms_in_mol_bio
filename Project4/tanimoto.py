@@ -59,11 +59,11 @@ class Tanimoto:
         Calculate pairwise Tanimoto coefficients for all unique drug pairs.
         
         For each pair of drugs, calculates:
-        1. Tanimoto coefficient (chemical similarity)
+        1. Tanimoto coefficient
         2. Whether they share any protein targets
         
         Inputs:
-            None - uses self stored vars
+            None (uses self stored vars)
         
         Returns:
             None (stores results in self.tanimoto_output_df)
@@ -107,7 +107,7 @@ class Tanimoto:
         Write calculated Tanimoto results to CSV file without header row.
         
         Creates output directory if it doesn't exist.
-        Output format: drug_a,drug_b,tanimoto_score,shared_target (no header)
+        Output format: drug_a,drug_b,tanimoto_score,shared_target
         
         Inputs:
             None (uses data in self.tanimoto_output_df and self.output_path)
@@ -130,8 +130,8 @@ class Tanimoto:
         Inputs:
             tanimoto_values: list or array of float, Tanimoto coefficient values to plot
             title: string, title for the histogram figure
-            filename: string, filename to save the histogram (e.g., 'all_tanimoto.png')
-            output_dir: string, directory where histogram will be saved (default: 'results')
+            filename: string, filename to save the histogram
+            output_dir: string, directory where histogram will be saved
         
         Returns:
             None (saves histogram to disk)
@@ -140,7 +140,7 @@ class Tanimoto:
         plt.figure(figsize=(10, 6))
         
         # Create histogram with appropriate bins
-        # Using 50 bins for good resolution across 0-1 range
+        # Using 50 bins for good resolution 
         plt.hist(tanimoto_values, bins=50, edgecolor='black', alpha=0.7)
         
         # Set labels and title
@@ -180,8 +180,8 @@ class Tanimoto:
         # Convert Tanimoto scores from string to float for plotting
         self.tanimoto_output_df['tanimoto_float'] = self.tanimoto_output_df['tanimoto'].astype(float)
         
-        # Get output directory from the output_path
-        output_dir = os.path.dirname(self.output_path) if os.path.dirname(self.output_path) else 'results'
+        # Get output directory 
+        output_dir = 'results'
         
         # 1. All Tanimoto values
         all_values = self.tanimoto_output_df['tanimoto_float']
@@ -225,7 +225,7 @@ class Tanimoto:
         4. Generate histograms of Tanimoto distributions
         
         Inputs:
-            sunet_id: string, SUNet ID for labeling histograms (default: 'nallen21')
+            sunet_id: string, SUNet ID for labeling histograms
         
         Returns:
             None (writes output file, generates histograms, and prints progress messages)

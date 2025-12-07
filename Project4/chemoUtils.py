@@ -9,10 +9,14 @@ def load_data(drugs_data_path, targets_data_path):
         2. fingerprint_dict: maps each drug to its molecular fingerprint set
         
         Inputs:
-            None (uses paths stored in instance variables)
+            drugs_data_path: string, path to drugs data CSV file
+            targets_data_path: string, path to targets data CSV file
         
         Returns:
-            None (stores data in instance variables)
+            drugs_df: pandas DataFrame, drugs data
+            targets_df: pandas DataFrame, targets data
+            drug_mapping_dict: dictionary, maps each drug to its set of protein targets
+            fingerprint_dict: dictionary, maps each drug to its molecular fingerprint set
         """
         # Load CSV files into pandas DataFrames
         drugs_df = pd.read_csv(drugs_data_path)
